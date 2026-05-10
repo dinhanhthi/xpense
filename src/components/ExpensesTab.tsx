@@ -84,7 +84,7 @@ export function ExpensesTab({ group }: { group: Group }) {
                       </span>
                     </div>
                   </div>
-                  <span className="font-mono text-sm font-semibold">
+                  <span className="font-mono text-sm font-medium">
                     {formatMoney(e.amountMinor, e.currency, group.currencyDecimals)}
                   </span>
                 </button>

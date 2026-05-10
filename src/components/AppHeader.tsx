@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Wallet } from 'lucide-react';
+import { Github, Wallet } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { ThemeToggle } from './ThemeToggle';
 
 export function AppHeader() {
@@ -15,6 +16,15 @@ export function AppHeader() {
         </Link>
         <div className="flex items-center gap-1">
           <ThemeToggle />
+          <Button variant="ghost" size="icon" asChild aria-label="GitHub repository">
+            <a
+              href="https://github.com/dinhanhthi/xpense"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Github className="h-4 w-4" />
+            </a>
+          </Button>
         </div>
       </div>
     </header>
