@@ -1,8 +1,14 @@
-# Xpense — split shared expenses with friends
+<p align="center">
+  <img src="xpense.png" alt="Xpense Logo" width="100" />
+</p>
 
-A small, fast, privacy-respecting expense splitter inspired by Tricount. Runs entirely
+<h1 align="center">Xpense</h1>
+
+<p align="center">
+  A small, fast, privacy-respecting expense splitter inspired by Tricount. Runs entirely
 in your browser. No backend, no accounts, no telemetry — your data stays on your device
 in IndexedDB.
+</p>
 
 ## Features
 
@@ -64,9 +70,3 @@ database, plus clear the `xpense-theme` localStorage entry.
 
 Vite 6, React 18, TypeScript, Tailwind CSS v3, shadcn/ui (Radix), Zustand, Dexie,
 lz-string, react-router v6, Vitest.
-
-## What it doesn't do (yet)
-
-- No multi-currency-per-expense or FX rates — one currency per group.
-- No cloud sync, login, or sharing of attached images.
-- No PWA install / offline service worker (works fine offline once loaded though).
