@@ -44,30 +44,6 @@ function splitParties(balances: Map<string, number>): {
 }
 
 /**
- * Greedy minimum-transfers solver: at each step pair the largest debtor with
- * the largest creditor. Output is deterministic for stable input ordering.
- */
-export function minimalTransfers(balances: Map<string, number>): Transfer[] {
-  const { debtors, creditors } = splitParties(balances);
-  const transfers: Transfer[] = [];
-
-  while (debtors.length > 0 && creditors.length > 0) {
-    const d = debtors[0];
-    const c = creditors[0];
-    const pay = Math.min(d.amount, c.amount);
-    if (pay > 0) {
-      transfers.push({ from: d.id, to: c.id, amountMinor: pay });
-    }
-    d.amount -= pay;
-    c.amount -= pay;
-    if (d.amount <= 0) debtors.shift();
-    if (c.amount <= 0) creditors.shift();
-  }
-
-  return transfers;
-}
-
-/**
  * Hub strategy — every debtor sends a single payment to one chosen creditor
  * (the hub), who then forwards the surplus to the remaining creditors. This
  * guarantees each debtor makes exactly one outgoing transfer regardless of

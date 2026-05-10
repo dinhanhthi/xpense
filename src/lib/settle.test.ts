@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeBalances,
-  minimalTransfers,
   debtorOnePayeeTransfers,
   creditorOnePayerTransfers,
 } from './settle';
@@ -95,50 +94,7 @@ describe('computeBalances', () => {
   });
 });
 
-describe('minimalTransfers', () => {
-  it('no transfers when all settled', () => {
-    const b = new Map([
-      ['a', 0],
-      ['b', 0],
-    ]);
-    expect(minimalTransfers(b)).toEqual([]);
-  });
-
-  it('two-person settle', () => {
-    const b = new Map([
-      ['a', 500],
-      ['b', -500],
-    ]);
-    const t = minimalTransfers(b);
-    expect(t).toHaveLength(1);
-    expect(t[0]).toEqual({ from: 'b', to: 'a', amountMinor: 500 });
-  });
-
-  it('settles three-person uneven case with minimal hops', () => {
-    // a paid 1000 split 3 ways → balance: a +667, b -333, c -334 (or similar)
-    const b = new Map([
-      ['a', 666],
-      ['b', -333],
-      ['c', -333],
-    ]);
-    const t = minimalTransfers(b);
-    expect(t.length).toBeLessThanOrEqual(2);
-    const totalIn = t.reduce((s, x) => s + x.amountMinor, 0);
-    expect(totalIn).toBe(666);
-  });
-
-  it('is deterministic with tied debtors and creditors', () => {
-    const b = new Map([
-      ['a', 100],
-      ['b', 100],
-      ['c', -100],
-      ['d', -100],
-    ]);
-    const t1 = minimalTransfers(new Map(b));
-    const t2 = minimalTransfers(new Map(b));
-    expect(t1).toEqual(t2);
-  });
-
+describe('split-mode invariants', () => {
   it('balance-sum-zero invariant holds across all split modes', () => {
     const cases: Partial<Expense>[] = [
       {
@@ -192,42 +148,6 @@ describe('minimalTransfers', () => {
   it('exposes Transfer-shaped output', () => {
     const t: Transfer = { from: 'a', to: 'b', amountMinor: 100 };
     expect(t.from).toBe('a');
-  });
-
-  it('end-to-end: applying transfers zeroes balances', () => {
-    const g = mkGroup(
-      ['a', 'b', 'c', 'd'],
-      [
-        {
-          amountMinor: 4000,
-          payerId: 'a',
-          splitMode: 'equal',
-          shares: [
-            { memberId: 'a', value: 0 },
-            { memberId: 'b', value: 0 },
-            { memberId: 'c', value: 0 },
-            { memberId: 'd', value: 0 },
-          ],
-        },
-        {
-          amountMinor: 600,
-          payerId: 'b',
-          splitMode: 'equal',
-          shares: [
-            { memberId: 'b', value: 0 },
-            { memberId: 'c', value: 0 },
-          ],
-        },
-      ],
-    );
-    const balances = computeBalances(g);
-    const transfers = minimalTransfers(balances);
-    const after = new Map(balances);
-    for (const t of transfers) {
-      after.set(t.from, (after.get(t.from) ?? 0) + t.amountMinor);
-      after.set(t.to, (after.get(t.to) ?? 0) - t.amountMinor);
-    }
-    for (const v of after.values()) expect(Math.abs(v)).toBeLessThanOrEqual(1);
   });
 });
 

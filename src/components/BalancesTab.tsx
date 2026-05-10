@@ -1,24 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  computeBalances,
-  debtorOnePayeeTransfers,
-  minimalTransfers,
-} from '@/lib/settle';
+import { computeBalances, debtorOnePayeeTransfers } from '@/lib/settle';
 import { resolveShares } from '@/lib/splitting';
 import { formatMoney } from '@/lib/format';
-import type { Group, Transfer } from '@/types/domain';
-
-type SettlementMode = 'min' | 'debtor-one';
-
-const MODE_LABEL: Record<SettlementMode, string> = {
-  min: 'Fewest transfers',
-  'debtor-one': 'Each debtor pays one',
-};
+import type { Group } from '@/types/domain';
 
 export function BalancesTab({ group }: { group: Group }) {
   const stats = useMemo(() => {
@@ -55,22 +43,13 @@ export function BalancesTab({ group }: { group: Group }) {
     }
   }, [group]);
 
-  const transfersByMode = useMemo(() => {
-    const make = (fn: (b: Map<string, number>) => Transfer[]) => {
-      try {
-        return fn(balances);
-      } catch {
-        return [];
-      }
-    };
-    return {
-      min: make(minimalTransfers),
-      'debtor-one': make(debtorOnePayeeTransfers),
-    } satisfies Record<SettlementMode, Transfer[]>;
+  const transfers = useMemo(() => {
+    try {
+      return debtorOnePayeeTransfers(balances);
+    } catch {
+      return [];
+    }
   }, [balances]);
-
-  const [mode, setMode] = useState<SettlementMode>('min');
-  const transfers = transfersByMode[mode];
 
   function copySummary() {
     const lines: string[] = [];
@@ -83,15 +62,12 @@ export function BalancesTab({ group }: { group: Group }) {
       const sign = v > 0 ? '+' : v < 0 ? '−' : '';
       lines.push(`  ${m.name}: ${sign}${formatMoney(Math.abs(v), group.currency, group.currencyDecimals)}`);
     }
-    for (const m of ['min', 'debtor-one'] as const) {
-      lines.push('');
-      lines.push(`${MODE_LABEL[m]}:`);
-      const ts = transfersByMode[m];
-      if (ts.length === 0) {
-        lines.push('  All settled — no transfers needed.');
-        continue;
-      }
-      for (const t of ts) {
+    lines.push('');
+    lines.push('Who pays whom:');
+    if (transfers.length === 0) {
+      lines.push('  All settled — no transfers needed.');
+    } else {
+      for (const t of transfers) {
         const from = group.members.find((mm) => mm.id === t.from)?.name ?? '?';
         const to = group.members.find((mm) => mm.id === t.to)?.name ?? '?';
         lines.push(`  ${from} → ${to}: ${formatMoney(t.amountMinor, group.currency, group.currencyDecimals)}`);
@@ -159,16 +135,6 @@ export function BalancesTab({ group }: { group: Group }) {
             Copy summary
           </Button>
         </div>
-        <Tabs value={mode} onValueChange={(v) => setMode(v as SettlementMode)}>
-          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 p-1 sm:inline-flex sm:w-auto">
-            <TabsTrigger value="min" className="text-xs sm:text-sm">
-              Fewest transfers
-            </TabsTrigger>
-            <TabsTrigger value="debtor-one" className="text-xs sm:text-sm">
-              Each pays one
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
         {transfers.length === 0 ? (
           <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
             All settled — no transfers needed.
