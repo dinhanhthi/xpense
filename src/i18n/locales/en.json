@@ -4,7 +4,15 @@
     "footer": "Runs entirely in your browser. Data stays on this device.",
     "githubAria": "GitHub repository",
     "languageAria": "Change language",
-    "themeAria": "Toggle theme"
+    "themeAria": "Toggle theme",
+    "clearData": "Clear all data on this device"
+  },
+  "clearData": {
+    "title": "Clear all data?",
+    "warning": "All groups, expenses, attached photos, and preferences (theme, language) will be removed. This action cannot be undone.",
+    "cancel": "Cancel",
+    "confirm": "Clear everything",
+    "clearing": "Clearing…"
   },
   "home": {
     "title": "Your groups",

@@ -38,3 +38,17 @@ export async function saveGroup(group: Group): Promise<void> {
 export async function deleteGroup(id: string): Promise<void> {
   await db.groups.delete(id);
 }
+
+export async function clearAllData(): Promise<void> {
+  await db.delete();
+  try {
+    localStorage.clear();
+  } catch {
+    // localStorage might be unavailable (private mode); ignore.
+  }
+  try {
+    sessionStorage.clear();
+  } catch {
+    // ignore
+  }
+}

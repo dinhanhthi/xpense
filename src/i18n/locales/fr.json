@@ -4,7 +4,15 @@
     "footer": "Tout s'exécute dans votre navigateur. Les données restent sur cet appareil.",
     "githubAria": "Dépôt GitHub",
     "languageAria": "Changer de langue",
-    "themeAria": "Changer de thème"
+    "themeAria": "Changer de thème",
+    "clearData": "Effacer toutes les données de cet appareil"
+  },
+  "clearData": {
+    "title": "Effacer toutes les données ?",
+    "warning": "Tous les groupes, dépenses, photos jointes et préférences (thème, langue) seront supprimés. Cette action est irréversible.",
+    "cancel": "Annuler",
+    "confirm": "Tout effacer",
+    "clearing": "Effacement…"
   },
   "home": {
     "title": "Vos groupes",

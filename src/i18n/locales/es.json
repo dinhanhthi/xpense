@@ -4,7 +4,15 @@
     "footer": "Funciona enteramente en tu navegador. Los datos quedan en este dispositivo.",
     "githubAria": "Repositorio de GitHub",
     "languageAria": "Cambiar idioma",
-    "themeAria": "Cambiar tema"
+    "themeAria": "Cambiar tema",
+    "clearData": "Borrar todos los datos de este dispositivo"
+  },
+  "clearData": {
+    "title": "¿Borrar todos los datos?",
+    "warning": "Se borrarán todos los grupos, gastos, fotos adjuntas y preferencias (tema, idioma). Esta acción no se puede deshacer.",
+    "cancel": "Cancelar",
+    "confirm": "Borrar todo",
+    "clearing": "Borrando…"
   },
   "home": {
     "title": "Tus grupos",

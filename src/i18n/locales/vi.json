@@ -4,7 +4,15 @@
     "footer": "Chạy hoàn toàn trong trình duyệt. Dữ liệu chỉ lưu trên thiết bị này.",
     "githubAria": "Kho mã nguồn GitHub",
     "languageAria": "Đổi ngôn ngữ",
-    "themeAria": "Đổi giao diện"
+    "themeAria": "Đổi giao diện",
+    "clearData": "Xoá toàn bộ dữ liệu trên thiết bị này"
+  },
+  "clearData": {
+    "title": "Xoá toàn bộ dữ liệu?",
+    "warning": "Tất cả nhóm, chi tiêu, ảnh đính kèm và tuỳ chọn (giao diện, ngôn ngữ) sẽ bị xoá. Hành động này không thể hoàn tác.",
+    "cancel": "Huỷ",
+    "confirm": "Xoá tất cả",
+    "clearing": "Đang xoá…"
   },
   "home": {
     "title": "Nhóm của bạn",
