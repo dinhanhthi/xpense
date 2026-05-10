@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogBody, DialogContent } from '@/components/ui/dialog';
 import { saveImage, getImageUrl } from '@/lib/images';
 
 export function ImageAttachments({
@@ -48,7 +48,9 @@ export function ImageAttachments({
 
       <Dialog open={previewId !== null} onOpenChange={(open) => !open && setPreviewId(null)}>
         <DialogContent className="max-w-3xl">
-          {previewId && <PreviewImage id={previewId} />}
+          <DialogBody className="p-0">
+            {previewId && <PreviewImage id={previewId} />}
+          </DialogBody>
         </DialogContent>
       </Dialog>
     </div>

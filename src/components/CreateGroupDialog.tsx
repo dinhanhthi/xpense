@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -57,38 +58,42 @@ export function CreateGroupDialog({ trigger }: { trigger?: React.ReactNode }) {
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create a new group</DialogTitle>
-          <DialogDescription>
-            Pick a name and currency. You can change them later.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="group-name">Group name</Label>
-            <Input
-              id="group-name"
-              autoFocus
-              placeholder="Trip to Lisbon"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="group-currency">Currency</Label>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger id="group-currency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CURRENCIES.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.symbol} — {c.code} · {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <form onSubmit={handleSubmit} className="contents">
+          <DialogHeader>
+            <DialogTitle>Create a new group</DialogTitle>
+            <DialogDescription>
+              Pick a name and currency. You can change them later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="group-name">Group name</Label>
+                <Input
+                  id="group-name"
+                  autoFocus
+                  placeholder="Trip to Lisbon"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="group-currency">Currency</Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger id="group-currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.symbol} — {c.code} · {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </DialogBody>
           <DialogFooter>
             <Button type="submit" disabled={!name.trim() || submitting}>
               Create group

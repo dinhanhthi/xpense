@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -144,22 +145,24 @@ export function ShareTab({ group }: { group: Group }) {
                 Scan with your phone camera to open this group on another device.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex justify-center pt-2">
-              {qrTooLong ? (
-                <p className="text-sm text-muted-foreground">
-                  Link is too long ({url.length} chars) to fit in a QR code. Use the copy button instead,
-                  or remove some expenses to shrink the share payload.
-                </p>
-              ) : qrDataUrl ? (
-                <img
-                  src={qrDataUrl}
-                  alt="QR code for share link"
-                  className="h-64 w-64 rounded bg-white p-2"
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">Generating QR code…</p>
-              )}
-            </div>
+            <DialogBody>
+              <div className="flex justify-center">
+                {qrTooLong ? (
+                  <p className="text-sm text-muted-foreground">
+                    Link is too long ({url.length} chars) to fit in a QR code. Use the copy button instead,
+                    or remove some expenses to shrink the share payload.
+                  </p>
+                ) : qrDataUrl ? (
+                  <img
+                    src={qrDataUrl}
+                    alt="QR code for share link"
+                    className="h-64 w-64 rounded bg-white p-2"
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">Generating QR code…</p>
+                )}
+              </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
 

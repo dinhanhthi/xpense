@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -159,7 +160,8 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
           <DialogTitle>{expense ? 'Edit expense' : 'Add expense'}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4">
+        <DialogBody>
+          <div className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="exp-title">Title</Label>
             <Input
@@ -232,7 +234,8 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
             <Label htmlFor="exp-note">Note (optional)</Label>
             <Input id="exp-note" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
-        </div>
+          </div>
+        </DialogBody>
 
         <DialogFooter>
           <div className="mr-auto text-xs text-destructive">
