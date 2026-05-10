@@ -3,11 +3,20 @@ import { Navigate, useParams } from 'react-router-dom';
 import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGroupsStore } from '@/store/groupsStore';
-import { computeBalances, minimalTransfers } from '@/lib/settle';
+import {
+  computeBalances,
+  debtorOnePayeeTransfers,
+  minimalTransfers,
+} from '@/lib/settle';
 import { resolveShares } from '@/lib/splitting';
 import { formatMoney } from '@/lib/format';
 import { getCurrency } from '@/lib/currencies';
-import type { Group } from '@/types/domain';
+import type { Group, Transfer } from '@/types/domain';
+
+const SETTLEMENT_VIEWS = [
+  { key: 'min', label: 'Fewest transfers', fn: minimalTransfers },
+  { key: 'debtor-one', label: 'Each debtor pays one person', fn: debtorOnePayeeTransfers },
+] as const;
 
 export function PrintGroupPage() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -74,7 +83,19 @@ function Summary({ group }: { group: Group }) {
       return new Map<string, number>();
     }
   }, [group]);
-  const transfers = useMemo(() => minimalTransfers(balances), [balances]);
+  const transferViews = useMemo(
+    () =>
+      SETTLEMENT_VIEWS.map((v) => {
+        let transfers: Transfer[] = [];
+        try {
+          transfers = v.fn(balances);
+        } catch {
+          /* skip */
+        }
+        return { key: v.key, label: v.label, transfers };
+      }),
+    [balances],
+  );
 
   const sortedExpenses = useMemo(
     () => [...group.expenses].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
@@ -173,43 +194,48 @@ function Summary({ group }: { group: Group }) {
         </table>
       </section>
 
-      <section className="space-y-3 print-keep-together">
+      <section className="space-y-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">Who pays whom</h2>
-        {transfers.length === 0 ? (
-          <p className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">
-            All settled — no transfers needed.
-          </p>
-        ) : (
-          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-            {transfers.map((t, i) => {
-              const from = group.members.find((m) => m.id === t.from);
-              const to = group.members.find((m) => m.id === t.to);
-              return (
-                <li
-                  key={i}
-                  className="flex items-center gap-4 px-4 py-3 print-row"
-                >
-                  <span
-                    className="inline-block h-3 w-3 flex-none rounded-full"
-                    style={{ backgroundColor: from?.color ?? '#94a3b8' }}
-                    aria-hidden
-                  />
-                  <span className="font-medium text-slate-800">{from?.name ?? '?'}</span>
-                  <span aria-hidden className="text-slate-400">→</span>
-                  <span
-                    className="inline-block h-3 w-3 flex-none rounded-full"
-                    style={{ backgroundColor: to?.color ?? '#94a3b8' }}
-                    aria-hidden
-                  />
-                  <span className="font-medium text-slate-800">{to?.name ?? '?'}</span>
-                  <span className="ml-auto font-mono font-semibold text-slate-900">
-                    {formatMoney(t.amountMinor, group.currency, group.currencyDecimals)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {transferViews.map((view) => (
+          <div key={view.key} className="space-y-2 print-keep-together">
+            <h3 className="text-sm font-medium text-slate-700">{view.label}</h3>
+            {view.transfers.length === 0 ? (
+              <p className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">
+                All settled — no transfers needed.
+              </p>
+            ) : (
+              <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                {view.transfers.map((t, i) => {
+                  const from = group.members.find((m) => m.id === t.from);
+                  const to = group.members.find((m) => m.id === t.to);
+                  return (
+                    <li
+                      key={i}
+                      className="flex items-center gap-4 px-4 py-3 print-row"
+                    >
+                      <span
+                        className="inline-block h-3 w-3 flex-none rounded-full"
+                        style={{ backgroundColor: from?.color ?? '#94a3b8' }}
+                        aria-hidden
+                      />
+                      <span className="font-medium text-slate-800">{from?.name ?? '?'}</span>
+                      <span aria-hidden className="text-slate-400">→</span>
+                      <span
+                        className="inline-block h-3 w-3 flex-none rounded-full"
+                        style={{ backgroundColor: to?.color ?? '#94a3b8' }}
+                        aria-hidden
+                      />
+                      <span className="font-medium text-slate-800">{to?.name ?? '?'}</span>
+                      <span className="ml-auto font-mono font-semibold text-slate-900">
+                        {formatMoney(t.amountMinor, group.currency, group.currencyDecimals)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ))}
       </section>
 
       <section className="space-y-3">

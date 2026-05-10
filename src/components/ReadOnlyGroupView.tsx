@@ -1,10 +1,19 @@
 import { useMemo } from 'react';
 import { ArrowRight, Receipt } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { computeBalances, minimalTransfers } from '@/lib/settle';
+import {
+  computeBalances,
+  debtorOnePayeeTransfers,
+  minimalTransfers,
+} from '@/lib/settle';
 import { resolveShares } from '@/lib/splitting';
 import { formatMoney } from '@/lib/format';
-import type { Group } from '@/types/domain';
+import type { Group, Transfer } from '@/types/domain';
+
+const SETTLEMENT_VIEWS = [
+  { key: 'min', label: 'Fewest transfers', fn: minimalTransfers },
+  { key: 'debtor-one', label: 'Each debtor pays one person', fn: debtorOnePayeeTransfers },
+] as const;
 
 export function ReadOnlyGroupView({ group }: { group: Group }) {
   const balances = useMemo(() => {
@@ -14,7 +23,19 @@ export function ReadOnlyGroupView({ group }: { group: Group }) {
       return new Map<string, number>();
     }
   }, [group]);
-  const transfers = useMemo(() => minimalTransfers(balances), [balances]);
+  const transferViews = useMemo(
+    () =>
+      SETTLEMENT_VIEWS.map((v) => {
+        let transfers: Transfer[] = [];
+        try {
+          transfers = v.fn(balances);
+        } catch {
+          /* skip */
+        }
+        return { key: v.key, label: v.label, transfers };
+      }),
+    [balances],
+  );
   const sortedExpenses = useMemo(
     () => [...group.expenses].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
     [group.expenses],
@@ -120,30 +141,35 @@ export function ReadOnlyGroupView({ group }: { group: Group }) {
         </ul>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-4">
         <h2 className="text-lg font-semibold">Who pays whom</h2>
-        {transfers.length === 0 ? (
-          <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-            All settled — no transfers needed.
-          </p>
-        ) : (
-          <ul className="divide-y rounded-lg border">
-            {transfers.map((t, i) => {
-              const from = group.members.find((m) => m.id === t.from);
-              const to = group.members.find((m) => m.id === t.to);
-              return (
-                <li key={i} className="flex items-center gap-3 px-4 py-3">
-                  <span className="font-medium">{from?.name ?? '?'}</span>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{to?.name ?? '?'}</span>
-                  <span className="ml-auto font-mono font-semibold">
-                    {formatMoney(t.amountMinor, group.currency, group.currencyDecimals)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {transferViews.map((view) => (
+          <div key={view.key} className="space-y-2">
+            <h3 className="text-sm font-medium text-muted-foreground">{view.label}</h3>
+            {view.transfers.length === 0 ? (
+              <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                All settled — no transfers needed.
+              </p>
+            ) : (
+              <ul className="divide-y rounded-lg border">
+                {view.transfers.map((t, i) => {
+                  const from = group.members.find((m) => m.id === t.from);
+                  const to = group.members.find((m) => m.id === t.to);
+                  return (
+                    <li key={i} className="flex items-center gap-3 px-4 py-3">
+                      <span className="font-medium">{from?.name ?? '?'}</span>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{to?.name ?? '?'}</span>
+                      <span className="ml-auto font-mono font-semibold">
+                        {formatMoney(t.amountMinor, group.currency, group.currencyDecimals)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ))}
       </section>
     </div>
   );

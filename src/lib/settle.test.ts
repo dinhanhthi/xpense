@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { computeBalances, minimalTransfers } from './settle';
-import type { Group, Expense } from '@/types/domain';
+import {
+  computeBalances,
+  minimalTransfers,
+  debtorOnePayeeTransfers,
+  creditorOnePayerTransfers,
+} from './settle';
+import type { Group, Expense, Transfer } from '@/types/domain';
 
 function mkGroup(members: string[], expenses: Partial<Expense>[]): Group {
   return {
@@ -184,6 +189,11 @@ describe('minimalTransfers', () => {
     }
   });
 
+  it('exposes Transfer-shaped output', () => {
+    const t: Transfer = { from: 'a', to: 'b', amountMinor: 100 };
+    expect(t.from).toBe('a');
+  });
+
   it('end-to-end: applying transfers zeroes balances', () => {
     const g = mkGroup(
       ['a', 'b', 'c', 'd'],
@@ -218,5 +228,138 @@ describe('minimalTransfers', () => {
       after.set(t.to, (after.get(t.to) ?? 0) - t.amountMinor);
     }
     for (const v of after.values()) expect(Math.abs(v)).toBeLessThanOrEqual(1);
+  });
+});
+
+function applyTransfers(
+  balances: Map<string, number>,
+  transfers: Transfer[],
+): Map<string, number> {
+  const after = new Map(balances);
+  for (const t of transfers) {
+    after.set(t.from, (after.get(t.from) ?? 0) + t.amountMinor);
+    after.set(t.to, (after.get(t.to) ?? 0) - t.amountMinor);
+  }
+  return after;
+}
+
+function countOutgoingPerDebtor(
+  transfers: Transfer[],
+  balances: Map<string, number>,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const [id, v] of balances) if (v < 0) counts.set(id, 0);
+  for (const t of transfers) {
+    if ((balances.get(t.from) ?? 0) < 0) {
+      counts.set(t.from, (counts.get(t.from) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+function countIncomingPerCreditor(
+  transfers: Transfer[],
+  balances: Map<string, number>,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const [id, v] of balances) if (v > 0) counts.set(id, 0);
+  for (const t of transfers) {
+    if ((balances.get(t.to) ?? 0) > 0) {
+      counts.set(t.to, (counts.get(t.to) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+describe('debtorOnePayeeTransfers', () => {
+  it('returns no transfers when settled', () => {
+    expect(debtorOnePayeeTransfers(new Map([['a', 0]]))).toEqual([]);
+  });
+
+  it('each debtor pays exactly one person when feasible', () => {
+    // Creditors: a=+300. Debtors: b=-100, c=-200. Both can pay a fully.
+    const b = new Map([
+      ['a', 300],
+      ['b', -100],
+      ['c', -200],
+    ]);
+    const t = debtorOnePayeeTransfers(b);
+    const counts = countOutgoingPerDebtor(t, b);
+    expect(counts.get('b')).toBe(1);
+    expect(counts.get('c')).toBe(1);
+  });
+
+  it('zeroes balances after applying transfers', () => {
+    const b = new Map([
+      ['thi', 3902],
+      ['thao', 3186],
+      ['thuy', -2814],
+      ['hieu', -2210],
+      ['hung', -2064],
+    ]);
+    const t = debtorOnePayeeTransfers(b);
+    const after = applyTransfers(b, t);
+    for (const v of after.values()) expect(Math.abs(v)).toBeLessThanOrEqual(1);
+  });
+
+  it('every debtor pays exactly one person (hub strategy) in screenshot scenario', () => {
+    // Even when no creditor is large enough to absorb a debtor directly, the
+    // hub strategy routes all debtors through one creditor so each debtor
+    // makes exactly one outgoing transfer.
+    const b = new Map([
+      ['thi', 3902],
+      ['thao', 3186],
+      ['thuy', -2814],
+      ['hieu', -2210],
+      ['hung', -2064],
+    ]);
+    const t = debtorOnePayeeTransfers(b);
+    const counts = countOutgoingPerDebtor(t, b);
+    for (const [, c] of counts) expect(c).toBe(1);
+  });
+});
+
+describe('creditorOnePayerTransfers', () => {
+  it('returns no transfers when settled', () => {
+    expect(creditorOnePayerTransfers(new Map([['a', 0]]))).toEqual([]);
+  });
+
+  it('each creditor receives from exactly one person when feasible', () => {
+    // Debtors: a=-300. Creditors: b=+100, c=+200. a can pay each fully.
+    const b = new Map([
+      ['a', -300],
+      ['b', 100],
+      ['c', 200],
+    ]);
+    const t = creditorOnePayerTransfers(b);
+    const counts = countIncomingPerCreditor(t, b);
+    expect(counts.get('b')).toBe(1);
+    expect(counts.get('c')).toBe(1);
+  });
+
+  it('zeroes balances after applying transfers', () => {
+    const b = new Map([
+      ['thi', 3902],
+      ['thao', 3186],
+      ['thuy', -2814],
+      ['hieu', -2210],
+      ['hung', -2064],
+    ]);
+    const t = creditorOnePayerTransfers(b);
+    const after = applyTransfers(b, t);
+    for (const v of after.values()) expect(Math.abs(v)).toBeLessThanOrEqual(1);
+  });
+
+  it('every creditor receives from exactly one person (hub strategy) in screenshot scenario', () => {
+    const b = new Map([
+      ['thi', 3902],
+      ['thao', 3186],
+      ['thuy', -2814],
+      ['hieu', -2210],
+      ['hung', -2064],
+    ]);
+    const t = creditorOnePayerTransfers(b);
+    const counts = countIncomingPerCreditor(t, b);
+    for (const [, c] of counts) expect(c).toBe(1);
   });
 });
