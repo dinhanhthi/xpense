@@ -13,7 +13,7 @@ export function App() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppHeader />
-      <main className="container flex-1 py-6">
+      <main className="container max-w-4xl flex-1 py-6">
         <Outlet />
       </main>
       <footer className="container py-6 text-center text-xs text-muted-foreground">
