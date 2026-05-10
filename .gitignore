@@ -11,3 +11,8 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# >>> coding-friend managed
+docs/
+.coding-friend/
+# <<< coding-friend managed
