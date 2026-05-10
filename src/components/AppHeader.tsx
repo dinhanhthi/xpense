@@ -11,7 +11,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container max-w-4xl flex h-12 items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2 font-semibold">
-          <img src="/xpense.png" alt="Xpense Logo" className="h-8 w-8" />
+          <img src="/xpense.svg" alt="Xpense Logo" className="h-8 w-8" />
           <span className="text-base">Xpense</span>
           <span className="hidden text-xs font-normal text-muted-foreground sm:inline">
             {t('app.tagline')}

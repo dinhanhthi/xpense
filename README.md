@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="xpense.png" alt="Xpense Logo" width="100" />
+  <img src="public/xpense.svg" alt="Xpense Logo" width="100" />
 </p>
 
 <h1 align="center">Xpense</h1>

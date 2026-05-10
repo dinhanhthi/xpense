@@ -1,4 +1,3 @@
-import { Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGroupsStore } from '@/store/groupsStore';
 import { GroupCard } from '@/components/GroupCard';
@@ -27,7 +26,7 @@ export function HomePage() {
         </div>
       ) : groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-16 text-center">
-          <Wallet className="h-10 w-10 text-muted-foreground" />
+          <img src="/xpense.svg" alt="Xpense Logo" className="h-10 w-10 opacity-60" />
           <div>
             <p className="font-medium">{t('home.emptyTitle')}</p>
             <p className="text-sm text-muted-foreground">{t('home.emptyHint')}</p>

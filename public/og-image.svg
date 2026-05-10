@@ -26,7 +26,7 @@
   <rect width="1200" height="630" fill="url(#glow2)"/>
 
   <!-- Logo image -->
-  <image href="xpense.png" x="80" y="190" width="260" height="260"/>
+  <image href="xpense.svg" x="80" y="190" width="260" height="260"/>
 
   <!-- Text content -->
   <g transform="translate(390, 215)">
