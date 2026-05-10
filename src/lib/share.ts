@@ -3,11 +3,14 @@ import { nanoid } from 'nanoid';
 import type { Expense, Group, Member, SplitMode, SplitShare } from '@/types/domain';
 import { CURRENCIES } from './currencies';
 
-export const SHARE_VERSION = 1;
+export const SHARE_VERSION = 2;
 
 const VALID_SPLIT_MODES: ReadonlySet<SplitMode> = new Set(['equal', 'percent', 'amount', 'parts']);
 const VALID_CURRENCY_CODES: ReadonlySet<string> = new Set(CURRENCIES.map((c) => c.code));
 const COLOR_PATTERN = /^#[0-9a-f]{3,8}$/i;
+
+const SPLIT_MODE_CODES: Record<SplitMode, number> = { equal: 0, percent: 1, amount: 2, parts: 3 };
+const SPLIT_MODE_FROM_CODE: Record<number, SplitMode> = { 0: 'equal', 1: 'percent', 2: 'amount', 3: 'parts' };
 
 const LIMITS = {
   members: 200,
@@ -24,11 +27,6 @@ const LIMITS = {
   decimalsMax: 8,
 } as const;
 
-interface SharePayload {
-  v: number;
-  group: Group;
-}
-
 export class ShareDecodeError extends Error {
   constructor(message: string) {
     super(message);
@@ -36,16 +34,108 @@ export class ShareDecodeError extends Error {
   }
 }
 
+/**
+ * Compact share format (v2): members are referenced by index instead of id;
+ * keys are single letters; default/empty fields are omitted; equal-split shares
+ * are omitted entirely. Typically ~40-50% shorter than v1.
+ *
+ * Shape:
+ *   [v, name, currency, decimals, createdAt, updatedAt, members, expenses]
+ *   member  = [name] | [name, color]
+ *   expense = [title, amountMinor, payerIdx, date, splitModeCode, shares?, note?, createdAt?]
+ *   share   = [memberIdx]              // for equal mode (just the index)
+ *           | [memberIdx, value]       // for percent/amount/parts
+ */
+type CompactMember = [string] | [string, string];
+type CompactShare = [number] | [number, number];
+type CompactExpense =
+  | [string, number, number, string, number]
+  | [string, number, number, string, number, CompactShare[]]
+  | [string, number, number, string, number, CompactShare[], string]
+  | [string, number, number, string, number, CompactShare[], string, number];
+type CompactPayload = [
+  number, // version
+  string, // name
+  string, // currency
+  number, // decimals
+  number, // createdAt
+  number, // updatedAt
+  CompactMember[],
+  CompactExpense[],
+];
+
 export function encodeGroupForShare(group: Group): { token: string; strippedImages: number } {
   let strippedImages = 0;
-  const sanitized: Group = {
-    ...group,
-    expenses: group.expenses.map((e) => {
-      strippedImages += e.imageIds.length;
-      return { ...e, imageIds: [] };
-    }),
-  };
-  const payload: SharePayload = { v: SHARE_VERSION, group: sanitized };
+  for (const e of group.expenses) strippedImages += e.imageIds.length;
+
+  const memberIdxById = new Map<string, number>();
+  group.members.forEach((m, i) => memberIdxById.set(m.id, i));
+
+  const compactMembers: CompactMember[] = group.members.map((m) =>
+    m.color ? [m.name, m.color] : [m.name],
+  );
+
+  const compactExpenses: CompactExpense[] = group.expenses.map((e) => {
+    const payerIdx = memberIdxById.get(e.payerId);
+    if (payerIdx === undefined) {
+      throw new Error(`Expense ${e.id} references unknown payer ${e.payerId}.`);
+    }
+    const modeCode = SPLIT_MODE_CODES[e.splitMode];
+
+    // For equal mode, we only need to know which members participate.
+    // For other modes we need member + value.
+    const compactShares: CompactShare[] = e.shares.map((s) => {
+      const idx = memberIdxById.get(s.memberId);
+      if (idx === undefined) {
+        throw new Error(`Share references unknown member ${s.memberId}.`);
+      }
+      if (e.splitMode === 'equal') return [idx] as [number];
+      return [idx, s.value] as [number, number];
+    });
+
+    // Omit shares entirely if it equals "all members" for equal mode
+    // (saves bytes for the most common case).
+    const allMembersInEqualOrder =
+      e.splitMode === 'equal' &&
+      compactShares.length === group.members.length &&
+      compactShares.every(([idx], i) => idx === i);
+
+    const base: [string, number, number, string, number] = [
+      e.title,
+      e.amountMinor,
+      payerIdx,
+      e.date,
+      modeCode,
+    ];
+
+    const hasNote = e.note !== undefined && e.note !== null && e.note !== '';
+    const hasCreatedAt = Number.isFinite(e.createdAt);
+    const needsShares = !allMembersInEqualOrder;
+
+    if (!needsShares && !hasNote && !hasCreatedAt) return base;
+    if (!hasNote && !hasCreatedAt) return [...base, compactShares] as CompactExpense;
+    if (!hasCreatedAt) {
+      return [...base, needsShares ? compactShares : [], e.note ?? ''] as CompactExpense;
+    }
+    return [
+      ...base,
+      needsShares ? compactShares : [],
+      e.note ?? '',
+      e.createdAt,
+    ] as CompactExpense;
+  });
+
+  const payload: CompactPayload = [
+    SHARE_VERSION,
+    group.name,
+    group.currency,
+    group.currencyDecimals,
+    group.createdAt,
+    group.updatedAt,
+    compactMembers,
+    compactExpenses,
+  ];
+
   const token = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
   return { token, strippedImages };
 }
@@ -59,26 +149,237 @@ export function decodeGroupFromShare(token: string): { group: Group; version: nu
   } catch {
     throw new ShareDecodeError('Share payload is not valid JSON.');
   }
-  const version = readVersion(parsed);
-  if (version !== SHARE_VERSION) {
-    throw new ShareDecodeError(`Unsupported share version: ${version}`);
+
+  // Detect format: v1 was {v: 1, group: {...}}, v2+ is a tuple [v, ...].
+  if (Array.isArray(parsed)) {
+    const version = readVersionFromTuple(parsed);
+    if (version !== SHARE_VERSION) {
+      throw new ShareDecodeError(`Unsupported share version: ${version}`);
+    }
+    const group = decodeCompactGroup(parsed as CompactPayload);
+    return { group: assignFreshIds(group), version };
   }
-  const group = validateAndNormalizeGroup((parsed as { group: unknown }).group);
-  return { group: remapIds(group), version };
+
+  // Legacy v1 fallback.
+  if (parsed && typeof parsed === 'object') {
+    const v = (parsed as { v?: unknown }).v;
+    if (typeof v !== 'number' || !Number.isInteger(v)) {
+      throw new ShareDecodeError('Share payload missing version.');
+    }
+    if (v !== 1) {
+      throw new ShareDecodeError(`Unsupported share version: ${v}`);
+    }
+    const group = validateAndNormalizeLegacyGroup((parsed as { group: unknown }).group);
+    return { group: assignFreshIds(group), version: v };
+  }
+
+  throw new ShareDecodeError('Share payload has unexpected shape.');
 }
 
-function readVersion(parsed: unknown): number {
-  if (!parsed || typeof parsed !== 'object') {
-    throw new ShareDecodeError('Share payload has unexpected shape.');
-  }
-  const v = (parsed as { v?: unknown }).v;
+function readVersionFromTuple(arr: unknown[]): number {
+  if (arr.length === 0) throw new ShareDecodeError('Share payload is empty.');
+  const v = arr[0];
   if (typeof v !== 'number' || !Number.isInteger(v)) {
     throw new ShareDecodeError('Share payload missing version.');
   }
   return v;
 }
 
-function validateAndNormalizeGroup(value: unknown): Group {
+function decodeCompactGroup(payload: CompactPayload): Group {
+  if (!Array.isArray(payload) || payload.length < 8) {
+    throw new ShareDecodeError('Compact payload has wrong shape.');
+  }
+  const [, name, currency, decimals, createdAt, updatedAt, rawMembers, rawExpenses] = payload;
+
+  const groupName = expectString(name, 'group.name', LIMITS.groupNameLen);
+  const cur = expectString(currency, 'group.currency', 16);
+  if (!VALID_CURRENCY_CODES.has(cur)) {
+    throw new ShareDecodeError(`Unsupported currency code: ${cur}`);
+  }
+  const currencyDecimals = expectInt(decimals, 'group.currencyDecimals', LIMITS.decimalsMin, LIMITS.decimalsMax);
+  const cAt = expectFiniteNumber(createdAt, 'group.createdAt');
+  const uAt = expectFiniteNumber(updatedAt, 'group.updatedAt');
+
+  if (!Array.isArray(rawMembers)) throw new ShareDecodeError('members must be an array.');
+  if (rawMembers.length > LIMITS.members) {
+    throw new ShareDecodeError(`Too many members (max ${LIMITS.members}).`);
+  }
+  const members: Member[] = rawMembers.map((m, i) => decodeCompactMember(m, i));
+
+  if (!Array.isArray(rawExpenses)) throw new ShareDecodeError('expenses must be an array.');
+  if (rawExpenses.length > LIMITS.expenses) {
+    throw new ShareDecodeError(`Too many expenses (max ${LIMITS.expenses}).`);
+  }
+  const expenses: Expense[] = rawExpenses.map((e, i) =>
+    decodeCompactExpense(e, i, members.length, cur),
+  );
+
+  // Placeholder ids — replaced by assignFreshIds. We need *some* unique value
+  // so downstream code (validation, remapping) doesn't choke.
+  const placeholderId = '__pending__';
+  members.forEach((m, i) => (m.id = `m${i}`));
+  expenses.forEach((e, i) => (e.id = `e${i}`));
+
+  return {
+    id: placeholderId,
+    name: groupName,
+    currency: cur,
+    currencyDecimals,
+    members,
+    expenses,
+    createdAt: cAt,
+    updatedAt: uAt,
+  };
+}
+
+function decodeCompactMember(value: unknown, index: number): Member {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 2) {
+    throw new ShareDecodeError(`members[${index}] must be a [name] or [name, color] tuple.`);
+  }
+  const name = expectString(value[0], `members[${index}].name`, LIMITS.nameLen);
+  let color: string | undefined;
+  if (value.length === 2 && value[1] !== undefined && value[1] !== null) {
+    const colorRaw = expectString(value[1], `members[${index}].color`, 16);
+    if (!COLOR_PATTERN.test(colorRaw)) {
+      throw new ShareDecodeError(`members[${index}].color must be a hex color like #ff8800.`);
+    }
+    color = colorRaw;
+  }
+  // Temporary id; replaced later.
+  return { id: '', name, color };
+}
+
+function decodeCompactExpense(
+  value: unknown,
+  index: number,
+  memberCount: number,
+  groupCurrency: string,
+): Expense {
+  if (!Array.isArray(value) || value.length < 5 || value.length > 8) {
+    throw new ShareDecodeError(`expenses[${index}] must be a tuple with 5-8 elements.`);
+  }
+  const [title, amountMinor, payerIdx, date, modeCode, sharesRaw, noteRaw, createdAtRaw] = value as [
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown,
+    unknown?,
+    unknown?,
+    unknown?,
+  ];
+
+  const titleStr = expectString(title, `expenses[${index}].title`, LIMITS.titleLen);
+  const amount = expectIntNonNegative(amountMinor, `expenses[${index}].amountMinor`, LIMITS.amountMinor);
+  const payerIndex = expectInt(payerIdx, `expenses[${index}].payerIdx`, 0, memberCount - 1);
+  const dateStr = expectString(date, `expenses[${index}].date`, LIMITS.isoDateLen);
+  const modeCodeNum = expectInt(modeCode, `expenses[${index}].splitMode`, 0, 3);
+  const splitMode = SPLIT_MODE_FROM_CODE[modeCodeNum];
+  if (!splitMode || !VALID_SPLIT_MODES.has(splitMode)) {
+    throw new ShareDecodeError(`expenses[${index}].splitMode is invalid.`);
+  }
+
+  let shares: SplitShare[];
+  const sharesProvided = sharesRaw !== undefined && Array.isArray(sharesRaw) && sharesRaw.length > 0;
+  if (sharesProvided) {
+    if (!Array.isArray(sharesRaw)) throw new ShareDecodeError(`expenses[${index}].shares must be an array.`);
+    if (sharesRaw.length > LIMITS.sharesPerExpense) {
+      throw new ShareDecodeError(`expenses[${index}].shares too many entries.`);
+    }
+    shares = sharesRaw.map((s, j) => decodeCompactShare(s, index, j, memberCount, splitMode));
+  } else {
+    // Default: every member participates equally.
+    shares = Array.from({ length: memberCount }, (_, i) => ({ memberId: `m${i}`, value: 0 }));
+  }
+
+  // Validate no duplicate member references.
+  const seen = new Set<string>();
+  for (const s of shares) {
+    if (seen.has(s.memberId)) {
+      throw new ShareDecodeError(`expenses[${index}] has duplicate share member.`);
+    }
+    seen.add(s.memberId);
+  }
+
+  let note: string | undefined;
+  if (noteRaw !== undefined && noteRaw !== null && noteRaw !== '') {
+    note = expectString(noteRaw, `expenses[${index}].note`, LIMITS.noteLen);
+  }
+
+  const createdAt =
+    createdAtRaw === undefined || createdAtRaw === null
+      ? Date.now()
+      : expectFiniteNumber(createdAtRaw, `expenses[${index}].createdAt`);
+
+  return {
+    id: '',
+    groupId: '',
+    title: titleStr,
+    amountMinor: amount,
+    currency: groupCurrency,
+    payerId: `m${payerIndex}`,
+    date: dateStr,
+    splitMode,
+    shares,
+    imageIds: [],
+    note,
+    createdAt,
+  };
+}
+
+function decodeCompactShare(
+  value: unknown,
+  expIdx: number,
+  shareIdx: number,
+  memberCount: number,
+  splitMode: SplitMode,
+): SplitShare {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 2) {
+    throw new ShareDecodeError(`expenses[${expIdx}].shares[${shareIdx}] must be a tuple.`);
+  }
+  const memberIndex = expectInt(value[0], `expenses[${expIdx}].shares[${shareIdx}].memberIdx`, 0, memberCount - 1);
+  let v = 0;
+  if (splitMode !== 'equal') {
+    if (value.length !== 2) {
+      throw new ShareDecodeError(`expenses[${expIdx}].shares[${shareIdx}] missing value for non-equal split.`);
+    }
+    if (typeof value[1] !== 'number' || !Number.isFinite(value[1])) {
+      throw new ShareDecodeError(`expenses[${expIdx}].shares[${shareIdx}].value must be a finite number.`);
+    }
+    v = value[1];
+  }
+  return { memberId: `m${memberIndex}`, value: v };
+}
+
+/**
+ * Replace placeholder ids (m0, m1, e0, ...) with fresh nanoids.
+ * Also used by the legacy v1 path.
+ */
+function assignFreshIds(group: Group): Group {
+  const memberMap = new Map<string, string>();
+  const newMembers = group.members.map((m) => {
+    const newId = nanoid();
+    memberMap.set(m.id, newId);
+    return { ...m, id: newId };
+  });
+  const newGroupId = nanoid();
+  const newExpenses = group.expenses.map((e) => ({
+    ...e,
+    id: nanoid(),
+    groupId: newGroupId,
+    payerId: memberMap.get(e.payerId) ?? e.payerId,
+    shares: e.shares.map((s) => ({
+      ...s,
+      memberId: memberMap.get(s.memberId) ?? s.memberId,
+    })),
+    imageIds: [],
+  }));
+  return { ...group, id: newGroupId, members: newMembers, expenses: newExpenses };
+}
+
+// ---------- Legacy v1 support (kept for backwards compatibility) ----------
+
+function validateAndNormalizeLegacyGroup(value: unknown): Group {
   if (!value || typeof value !== 'object') {
     throw new ShareDecodeError('Group must be an object.');
   }
@@ -98,7 +399,7 @@ function validateAndNormalizeGroup(value: unknown): Group {
   if (g.members.length > LIMITS.members) {
     throw new ShareDecodeError(`Too many members (max ${LIMITS.members}).`);
   }
-  const members: Member[] = g.members.map((m, i) => normalizeMember(m, i));
+  const members: Member[] = g.members.map((m, i) => normalizeLegacyMember(m, i));
   const memberIds = new Set(members.map((m) => m.id));
   if (memberIds.size !== members.length) {
     throw new ShareDecodeError('Duplicate member ids.');
@@ -108,12 +409,14 @@ function validateAndNormalizeGroup(value: unknown): Group {
   if (g.expenses.length > LIMITS.expenses) {
     throw new ShareDecodeError(`Too many expenses (max ${LIMITS.expenses}).`);
   }
-  const expenses: Expense[] = g.expenses.map((e, i) => normalizeExpense(e, i, memberIds, currency));
+  const expenses: Expense[] = g.expenses.map((e, i) =>
+    normalizeLegacyExpense(e, i, memberIds, currency),
+  );
 
   return { id, name, currency, currencyDecimals, members, expenses, createdAt, updatedAt };
 }
 
-function normalizeMember(value: unknown, index: number): Member {
+function normalizeLegacyMember(value: unknown, index: number): Member {
   if (!value || typeof value !== 'object') {
     throw new ShareDecodeError(`members[${index}] must be an object.`);
   }
@@ -131,7 +434,12 @@ function normalizeMember(value: unknown, index: number): Member {
   return { id, name, color };
 }
 
-function normalizeExpense(value: unknown, index: number, memberIds: Set<string>, groupCurrency: string): Expense {
+function normalizeLegacyExpense(
+  value: unknown,
+  index: number,
+  memberIds: Set<string>,
+  groupCurrency: string,
+): Expense {
   if (!value || typeof value !== 'object') {
     throw new ShareDecodeError(`expenses[${index}] must be an object.`);
   }
@@ -159,7 +467,7 @@ function normalizeExpense(value: unknown, index: number, memberIds: Set<string>,
   if (e.shares.length > LIMITS.sharesPerExpense) {
     throw new ShareDecodeError(`expenses[${index}].shares too many entries.`);
   }
-  const shares: SplitShare[] = e.shares.map((s, j) => normalizeShare(s, index, j, memberIds));
+  const shares: SplitShare[] = e.shares.map((s, j) => normalizeLegacyShare(s, index, j, memberIds));
   const seen = new Set<string>();
   for (const s of shares) {
     if (seen.has(s.memberId)) {
@@ -172,8 +480,6 @@ function normalizeExpense(value: unknown, index: number, memberIds: Set<string>,
   if (e.imageIds.length > LIMITS.imageIdsPerExpense) {
     throw new ShareDecodeError(`expenses[${index}].imageIds too many entries.`);
   }
-  // Image ids are dropped on share, but a malicious sender could put them in;
-  // we just discard.
   const imageIds: string[] = [];
 
   let note: string | undefined;
@@ -186,7 +492,12 @@ function normalizeExpense(value: unknown, index: number, memberIds: Set<string>,
   return { id, groupId, title, amountMinor, currency, payerId, date, splitMode, shares, imageIds, note, createdAt };
 }
 
-function normalizeShare(value: unknown, expIdx: number, shareIdx: number, memberIds: Set<string>): SplitShare {
+function normalizeLegacyShare(
+  value: unknown,
+  expIdx: number,
+  shareIdx: number,
+  memberIds: Set<string>,
+): SplitShare {
   if (!value || typeof value !== 'object') {
     throw new ShareDecodeError(`expenses[${expIdx}].shares[${shareIdx}] must be an object.`);
   }
@@ -201,6 +512,8 @@ function normalizeShare(value: unknown, expIdx: number, shareIdx: number, member
   }
   return { memberId, value: v };
 }
+
+// ---------- Shared validation helpers ----------
 
 function expectString(value: unknown, name: string, maxLen: number): string {
   if (typeof value !== 'string') throw new ShareDecodeError(`${name} must be a string.`);
@@ -227,28 +540,6 @@ function expectIntNonNegative(value: unknown, name: string, max: number): number
     throw new ShareDecodeError(`${name} must be a non-negative integer ≤ ${max}.`);
   }
   return value;
-}
-
-function remapIds(group: Group): Group {
-  const memberMap = new Map<string, string>();
-  const newMembers = group.members.map((m) => {
-    const newId = nanoid();
-    memberMap.set(m.id, newId);
-    return { ...m, id: newId };
-  });
-  const newGroupId = nanoid();
-  const newExpenses = group.expenses.map((e) => ({
-    ...e,
-    id: nanoid(),
-    groupId: newGroupId,
-    payerId: memberMap.get(e.payerId) ?? e.payerId,
-    shares: e.shares.map((s) => ({
-      ...s,
-      memberId: memberMap.get(s.memberId) ?? s.memberId,
-    })),
-    imageIds: [],
-  }));
-  return { ...group, id: newGroupId, members: newMembers, expenses: newExpenses };
 }
 
 export function buildShareUrl(token: string): string {

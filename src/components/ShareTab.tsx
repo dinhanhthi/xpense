@@ -1,14 +1,26 @@
-import { useMemo, useRef, useState } from 'react';
-import { Copy, Download, Upload, Link as LinkIcon, FileText } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import QRCode from 'qrcode';
+import { Copy, Download, Upload, Link as LinkIcon, FileText, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { encodeGroupForShare, buildShareUrl, decodeGroupFromShare } from '@/lib/share';
 import { useGroupsStore } from '@/store/groupsStore';
 import type { Group } from '@/types/domain';
 
 const WARN_TOKEN_LEN = 6000;
+// QR codes can encode about 2,950 alphanumeric chars at version 40 with low EC.
+// URLs are typically a mix of cases/symbols, so the practical ceiling is lower.
+// Above this length the QR becomes unreadable on a phone screen, so we hide it.
+const QR_MAX_URL_LEN = 2000;
 
 export function ShareTab({ group }: { group: Group }) {
   const navigate = useNavigate();
@@ -18,8 +30,38 @@ export function ShareTab({ group }: { group: Group }) {
   const { token, strippedImages } = useMemo(() => encodeGroupForShare(group), [group]);
   const url = useMemo(() => buildShareUrl(token), [token]);
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const sizeBytes = new Blob([token]).size;
   const tooLong = token.length > WARN_TOKEN_LEN;
+  const qrTooLong = url.length > QR_MAX_URL_LEN;
+
+  useEffect(() => {
+    if (!showQr || qrTooLong) {
+      setQrDataUrl(null);
+      return;
+    }
+    let cancelled = false;
+    QRCode.toDataURL(url, {
+      errorCorrectionLevel: 'L',
+      width: 320,
+      margin: 1,
+      color: { dark: '#0f172a', light: '#ffffff' },
+    }).then(
+      (dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl);
+      },
+      (err) => {
+        if (!cancelled) {
+          toast.error(`QR generation failed: ${(err as Error).message}`);
+          setShowQr(false);
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [showQr, url, qrTooLong]);
 
   function copyLink() {
     navigator.clipboard.writeText(url).then(
@@ -89,7 +131,37 @@ export function ShareTab({ group }: { group: Group }) {
           <Button onClick={copyLink} variant="outline">
             <Copy /> {copied ? 'Copied' : 'Copy'}
           </Button>
+          <Button onClick={() => setShowQr(true)} variant="outline">
+            <QrCode /> QR
+          </Button>
         </div>
+
+        <Dialog open={showQr} onOpenChange={setShowQr}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Share via QR code</DialogTitle>
+              <DialogDescription>
+                Scan with your phone camera to open this group on another device.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-center pt-2">
+              {qrTooLong ? (
+                <p className="text-sm text-muted-foreground">
+                  Link is too long ({url.length} chars) to fit in a QR code. Use the copy button instead,
+                  or remove some expenses to shrink the share payload.
+                </p>
+              ) : qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt="QR code for share link"
+                  className="h-64 w-64 rounded bg-white p-2"
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">Generating QR code…</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="text-xs text-muted-foreground">
           Token size: <span className="font-mono">{sizeBytes} bytes</span>
