@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogBody,
@@ -38,6 +39,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
   const addExpense = useGroupsStore((s) => s.addExpense);
   const updateExpense = useGroupsStore((s) => s.updateExpense);
+  const { t } = useTranslation();
 
   const [title, setTitle] = useState('');
   const [amountMinor, setAmountMinor] = useState(0);
@@ -84,10 +86,10 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
   }, [open, expense, group]);
 
   function validate(): { ok: true } | { ok: false; reason: string } {
-    if (!title.trim()) return { ok: false, reason: 'Add a title.' };
-    if (amountMinor <= 0) return { ok: false, reason: 'Amount must be greater than 0.' };
-    if (!payerId) return { ok: false, reason: 'Pick who paid.' };
-    if (shares.length === 0) return { ok: false, reason: 'Pick at least one participant.' };
+    if (!title.trim()) return { ok: false, reason: t('expenseDialog.errorTitle') };
+    if (amountMinor <= 0) return { ok: false, reason: t('expenseDialog.errorAmount') };
+    if (!payerId) return { ok: false, reason: t('expenseDialog.errorPayer') };
+    if (shares.length === 0) return { ok: false, reason: t('expenseDialog.errorParticipants') };
     try {
       resolveShares({
         id: 'v',
@@ -127,10 +129,10 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
     try {
       if (expense) {
         await updateExpense(group.id, { ...expense, ...payload });
-        toast.success('Expense updated');
+        toast.success(t('expenses.toastUpdated'));
       } else {
         await addExpense(group.id, payload);
-        toast.success('Expense added');
+        toast.success(t('expenses.toastAdded'));
       }
       // Now that the expense save succeeded, GC any images the user removed
       // during this editing session.
@@ -157,17 +159,17 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{expense ? 'Edit expense' : 'Add expense'}</DialogTitle>
+          <DialogTitle>{expense ? t('expenseDialog.titleEdit') : t('expenseDialog.titleAdd')}</DialogTitle>
         </DialogHeader>
 
         <DialogBody>
           <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="exp-title">Title</Label>
+            <Label htmlFor="exp-title">{t('expenseDialog.title')}</Label>
             <Input
               id="exp-title"
               autoFocus
-              placeholder="e.g. Dinner at La Casa"
+              placeholder={t('expenseDialog.titlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
@@ -175,7 +177,7 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="exp-amount">Amount ({group.currency})</Label>
+              <Label htmlFor="exp-amount">{t('expenseDialog.amount', { currency: group.currency })}</Label>
               <AmountInput
                 id="exp-amount"
                 value={amountMinor}
@@ -184,7 +186,7 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="exp-date">Date</Label>
+              <Label htmlFor="exp-date">{t('expenseDialog.date')}</Label>
               <Input
                 id="exp-date"
                 type="date"
@@ -195,10 +197,10 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="exp-payer">Paid by</Label>
+            <Label htmlFor="exp-payer">{t('expenseDialog.paidBy')}</Label>
             <Select value={payerId} onValueChange={setPayerId}>
               <SelectTrigger id="exp-payer">
-                <SelectValue placeholder="Pick a member" />
+                <SelectValue placeholder={t('expenseDialog.paidByPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {group.members.map((m) => (
@@ -209,7 +211,7 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              For multiple payers on the same activity, add one expense entry per payer.
+              {t('expenseDialog.paidByHint')}
             </p>
           </div>
 
@@ -226,12 +228,12 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
           />
 
           <div className="grid gap-2">
-            <Label>Bill photos (kept on this device only)</Label>
+            <Label>{t('expenseDialog.billPhotos')}</Label>
             <ImageAttachments imageIds={imageIds} onChange={setImageIds} />
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="exp-note">Note (optional)</Label>
+            <Label htmlFor="exp-note">{t('expenseDialog.note')}</Label>
             <Input id="exp-note" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           </div>
@@ -242,7 +244,7 @@ export function ExpenseDialog({ group, expense, open, onOpenChange }: Props) {
             {!validation.ok ? validation.reason : null}
           </div>
           <Button onClick={handleSave} disabled={!validation.ok}>
-            {expense ? 'Save changes' : 'Add expense'}
+            {expense ? t('expenseDialog.saveChanges') : t('expenseDialog.titleAdd')}
           </Button>
         </DialogFooter>
       </DialogContent>

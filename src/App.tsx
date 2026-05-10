@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AppHeader } from './components/AppHeader';
 import { useGroupsStore } from './store/groupsStore';
 
 export function App() {
   const loadGroups = useGroupsStore((s) => s.loadGroups);
+  const { t } = useTranslation();
 
   useEffect(() => {
     loadGroups();
@@ -17,7 +19,7 @@ export function App() {
         <Outlet />
       </main>
       <footer className="container py-6 text-center text-xs text-muted-foreground">
-        Runs entirely in your browser. Data stays on this device.
+        {t('app.footer')}
       </footer>
     </div>
   );

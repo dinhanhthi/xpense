@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogBody, DialogContent } from '@/components/ui/dialog';
 import { saveImage, getImageUrl } from '@/lib/images';
@@ -67,6 +68,7 @@ function Thumbnail({
   onRemove: () => void;
 }) {
   const [url, setUrl] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     let cancelled = false;
@@ -95,7 +97,7 @@ function Thumbnail({
         variant="destructive"
         className="absolute right-1 top-1 h-5 w-5"
         onClick={onRemove}
-        aria-label="Remove image"
+        aria-label={t('imageAttachments.removeAria')}
       >
         <X className="h-3 w-3" />
       </Button>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MoreVertical, Trash2, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,6 +22,7 @@ export function GroupHeader({ group }: { group: Group }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(group.name);
   const cur = getCurrency(group.currency);
+  const { t } = useTranslation();
 
   async function commit() {
     if (draft.trim() && draft !== group.name) {
@@ -30,11 +32,11 @@ export function GroupHeader({ group }: { group: Group }) {
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete group "${group.name}"? This also deletes its attached images. This cannot be undone.`)) {
+    if (!confirm(t('groupHeader.confirmDelete', { name: group.name }))) {
       return;
     }
     await deleteGroup(group.id);
-    toast.success('Group deleted');
+    toast.success(t('groupHeader.toastDeleted'));
     navigate('/');
   }
 
@@ -55,7 +57,7 @@ export function GroupHeader({ group }: { group: Group }) {
             }}
             className="h-8 w-64"
           />
-          <Button size="icon" variant="ghost" onClick={commit} aria-label="Save">
+          <Button size="icon" variant="ghost" onClick={commit} aria-label={t('groupHeader.saveAria')}>
             <Check className="h-4 w-4" />
           </Button>
           <Button
@@ -65,7 +67,7 @@ export function GroupHeader({ group }: { group: Group }) {
               setDraft(group.name);
               setEditing(false);
             }}
-            aria-label="Cancel"
+            aria-label={t('groupHeader.cancelAria')}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -73,7 +75,7 @@ export function GroupHeader({ group }: { group: Group }) {
       ) : (
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">{group.name}</h1>
-          <Button size="icon" variant="ghost" onClick={() => setEditing(true)} aria-label="Rename group">
+          <Button size="icon" variant="ghost" onClick={() => setEditing(true)} aria-label={t('groupHeader.renameAria')}>
             <Pencil className="h-4 w-4" />
           </Button>
         </div>
@@ -84,13 +86,13 @@ export function GroupHeader({ group }: { group: Group }) {
       <div className="ml-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Group actions">
+            <Button variant="outline" size="icon" aria-label={t('groupHeader.actionsAria')}>
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete}>
-              <Trash2 className="mr-2 h-4 w-4" /> Delete group
+              <Trash2 className="mr-2 h-4 w-4" /> {t('groupHeader.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

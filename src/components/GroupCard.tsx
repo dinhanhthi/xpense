@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
 import { Users, Receipt } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { getCurrency } from '@/lib/currencies';
 import type { Group } from '@/types/domain';
 
 export function GroupCard({ group }: { group: Group }) {
   const cur = getCurrency(group.currency);
-  const updated = new Date(group.updatedAt).toLocaleDateString();
+  const { t, i18n } = useTranslation();
+  const updated = new Date(group.updatedAt).toLocaleDateString(i18n.resolvedLanguage);
   return (
     <Link
       to={`/g/${group.id}`}
@@ -20,16 +22,16 @@ export function GroupCard({ group }: { group: Group }) {
               {cur.symbol} {cur.code}
             </span>
           </CardTitle>
-          <CardDescription>Last updated {updated}</CardDescription>
+          <CardDescription>{t('groupCard.lastUpdated', { date: updated })}</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center gap-4 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Users className="h-4 w-4" />
-            {group.members.length} {group.members.length === 1 ? 'member' : 'members'}
+            {t('groupCard.members', { count: group.members.length })}
           </span>
           <span className="inline-flex items-center gap-1">
             <Receipt className="h-4 w-4" />
-            {group.expenses.length} {group.expenses.length === 1 ? 'expense' : 'expenses'}
+            {t('groupCard.expenses', { count: group.expenses.length })}
           </span>
         </CardContent>
       </Card>

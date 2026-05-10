@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { Copy, Download, Upload, Link as LinkIcon, FileText, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,6 +28,7 @@ export function ShareTab({ group }: { group: Group }) {
   const navigate = useNavigate();
   const importGroup = useGroupsStore((s) => s.importGroup);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
 
   const { token, strippedImages } = useMemo(() => encodeGroupForShare(group), [group]);
   const url = useMemo(() => buildShareUrl(token), [token]);
@@ -54,7 +56,7 @@ export function ShareTab({ group }: { group: Group }) {
       },
       (err) => {
         if (!cancelled) {
-          toast.error(`QR generation failed: ${(err as Error).message}`);
+          toast.error(t('share.qrError', { message: (err as Error).message }));
           setShowQr(false);
         }
       },
@@ -62,16 +64,16 @@ export function ShareTab({ group }: { group: Group }) {
     return () => {
       cancelled = true;
     };
-  }, [showQr, url, qrTooLong]);
+  }, [showQr, url, qrTooLong, t]);
 
   function copyLink() {
     navigator.clipboard.writeText(url).then(
       () => {
         setCopied(true);
-        toast.success('Share link copied');
+        toast.success(t('share.toastCopied'));
         setTimeout(() => setCopied(false), 1500);
       },
-      () => toast.error('Could not copy link'),
+      () => toast.error(t('share.toastCopyFailed')),
     );
   }
 
@@ -93,16 +95,19 @@ export function ShareTab({ group }: { group: Group }) {
       const text = await file.text();
       const parsed = JSON.parse(text);
       if (!parsed || parsed.v !== 1 || !parsed.group) {
-        throw new Error('Unsupported file format.');
+        throw new Error(t('share.importErrorFormat'));
       }
       const incoming = parsed.group as Group;
-      const newName = prompt('Name for the imported group:', `${incoming.name} (imported)`);
+      const newName = prompt(
+        t('share.promptImportName'),
+        `${incoming.name} ${t('share.importedSuffix')}`,
+      );
       if (newName === null) return;
       const created = await importGroup({ ...incoming, name: newName.trim() || incoming.name });
-      toast.success('Imported');
+      toast.success(t('share.toastImported'));
       navigate(`/g/${created.id}`);
     } catch (err) {
-      toast.error(`Import failed: ${(err as Error).message}`);
+      toast.error(t('share.importErrorPrefix', { message: (err as Error).message }));
     }
   }
 
@@ -120,37 +125,33 @@ export function ShareTab({ group }: { group: Group }) {
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Share link</h2>
+        <h2 className="text-lg font-semibold">{t('share.shareLink')}</h2>
         <p className="text-sm text-muted-foreground">
-          The link below contains all group data — members, expenses, splits — encoded into the URL itself.
-          Open it on any device and the same group is reconstructed.{' '}
-          <strong>Attached photos are NOT included</strong> (they live only on this device).
+          {t('share.shareLinkDescription')}{' '}
+          <strong>{t('share.photosNotIncluded')}</strong> {t('share.photosNotIncludedSuffix')}
         </p>
 
         <div className="flex gap-2">
           <Input value={url} readOnly className="font-mono text-xs" />
           <Button onClick={copyLink} variant="outline">
-            <Copy /> {copied ? 'Copied' : 'Copy'}
+            <Copy /> {copied ? t('share.copied') : t('share.copy')}
           </Button>
           <Button onClick={() => setShowQr(true)} variant="outline">
-            <QrCode /> QR
+            <QrCode /> {t('share.qr')}
           </Button>
         </div>
 
         <Dialog open={showQr} onOpenChange={setShowQr}>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
-              <DialogTitle>Share via QR code</DialogTitle>
-              <DialogDescription>
-                Scan with your phone camera to open this group on another device.
-              </DialogDescription>
+              <DialogTitle>{t('share.qrTitle')}</DialogTitle>
+              <DialogDescription>{t('share.qrDescription')}</DialogDescription>
             </DialogHeader>
             <DialogBody>
               <div className="flex justify-center">
                 {qrTooLong ? (
                   <p className="text-sm text-muted-foreground">
-                    Link is too long ({url.length} chars) to fit in a QR code. Use the copy button instead,
-                    or remove some expenses to shrink the share payload.
+                    {t('share.qrTooLong', { count: url.length })}
                   </p>
                 ) : qrDataUrl ? (
                   <img
@@ -159,7 +160,7 @@ export function ShareTab({ group }: { group: Group }) {
                     className="h-64 w-64 rounded bg-white p-2"
                   />
                 ) : (
-                  <p className="text-sm text-muted-foreground">Generating QR code…</p>
+                  <p className="text-sm text-muted-foreground">{t('share.qrGenerating')}</p>
                 )}
               </div>
             </DialogBody>
@@ -167,21 +168,21 @@ export function ShareTab({ group }: { group: Group }) {
         </Dialog>
 
         <div className="text-xs text-muted-foreground">
-          Token size: <span className="font-mono">{sizeBytes} bytes</span>
+          {t('share.tokenSize')} <span className="font-mono">{t('share.bytes', { count: sizeBytes })}</span>
           {strippedImages > 0 && (
             <>
               {' · '}
-              <span>{strippedImages} image{strippedImages === 1 ? '' : 's'} excluded</span>
+              <span>{t('share.imagesExcluded', { count: strippedImages })}</span>
             </>
           )}
           {tooLong && (
             <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-amber-700 dark:text-amber-300">
-              Link is long ({sizeBytes} bytes) — some apps may truncate it. Prefer "Export JSON" if you hit issues.
+              {t('share.linkLong', { count: sizeBytes })}
             </p>
           )}
           {roundTripError && (
             <p className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-destructive">
-              Encoded token failed validation: {roundTripError}
+              {t('share.tokenInvalid', { error: roundTripError })}
             </p>
           )}
         </div>
@@ -189,28 +190,26 @@ export function ShareTab({ group }: { group: Group }) {
         <div className="flex flex-wrap gap-2 pt-2">
           <Button asChild variant="outline">
             <a href={url} target="_blank" rel="noreferrer">
-              <LinkIcon /> Open share view
+              <LinkIcon /> {t('share.openShareView')}
             </a>
           </Button>
           <Button asChild variant="outline">
             <a href={`/g/${group.id}/print`} target="_blank" rel="noreferrer">
-              <FileText /> Export as PDF
+              <FileText /> {t('share.exportPdf')}
             </a>
           </Button>
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Backup</h2>
-        <p className="text-sm text-muted-foreground">
-          Export this group to a JSON file as a local backup, or import a JSON file to recreate a group on this device.
-        </p>
+        <h2 className="text-lg font-semibold">{t('share.backup')}</h2>
+        <p className="text-sm text-muted-foreground">{t('share.backupDescription')}</p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={exportJson} variant="outline">
-            <Download /> Export JSON
+            <Download /> {t('share.exportJson')}
           </Button>
           <Button onClick={() => fileInputRef.current?.click()} variant="outline">
-            <Upload /> Import JSON
+            <Upload /> {t('share.importJson')}
           </Button>
           <input
             ref={fileInputRef}

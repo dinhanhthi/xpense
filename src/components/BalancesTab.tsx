@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { computeBalances, debtorOnePayeeTransfers } from '@/lib/settle';
@@ -9,6 +10,7 @@ import { formatMoney } from '@/lib/format';
 import type { Group } from '@/types/domain';
 
 export function BalancesTab({ group }: { group: Group }) {
+  const { t } = useTranslation();
   const stats = useMemo(() => {
     const totalSpend = group.expenses.reduce((sum, e) => sum + e.amountMinor, 0);
     const dates = group.expenses.map((e) => e.date).sort();
@@ -53,36 +55,40 @@ export function BalancesTab({ group }: { group: Group }) {
 
   function copySummary() {
     const lines: string[] = [];
-    lines.push(`${group.name} — settlement summary`);
-    lines.push(`Total spend: ${formatMoney(stats.totalSpend, group.currency, group.currencyDecimals)}`);
+    lines.push(t('balances.summaryHeader', { name: group.name }));
+    lines.push(
+      t('balances.summaryTotal', {
+        amount: formatMoney(stats.totalSpend, group.currency, group.currencyDecimals),
+      }),
+    );
     lines.push('');
-    lines.push('Balances:');
+    lines.push(t('balances.summaryBalances'));
     for (const m of group.members) {
       const v = balances.get(m.id) ?? 0;
       const sign = v > 0 ? '+' : v < 0 ? '−' : '';
       lines.push(`  ${m.name}: ${sign}${formatMoney(Math.abs(v), group.currency, group.currencyDecimals)}`);
     }
     lines.push('');
-    lines.push('Who pays whom:');
+    lines.push(t('balances.summaryWho'));
     if (transfers.length === 0) {
-      lines.push('  All settled — no transfers needed.');
+      lines.push(t('balances.summaryAllSettled'));
     } else {
-      for (const t of transfers) {
-        const from = group.members.find((mm) => mm.id === t.from)?.name ?? '?';
-        const to = group.members.find((mm) => mm.id === t.to)?.name ?? '?';
-        lines.push(`  ${from} → ${to}: ${formatMoney(t.amountMinor, group.currency, group.currencyDecimals)}`);
+      for (const tr of transfers) {
+        const from = group.members.find((mm) => mm.id === tr.from)?.name ?? '?';
+        const to = group.members.find((mm) => mm.id === tr.to)?.name ?? '?';
+        lines.push(`  ${from} → ${to}: ${formatMoney(tr.amountMinor, group.currency, group.currencyDecimals)}`);
       }
     }
     navigator.clipboard.writeText(lines.join('\n')).then(
-      () => toast.success('Summary copied to clipboard'),
-      () => toast.error('Could not copy to clipboard'),
+      () => toast.success(t('balances.toastCopied')),
+      () => toast.error(t('balances.toastCopyFailed')),
     );
   }
 
   if (group.members.length === 0) {
     return (
       <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        Add members and expenses to see balances.
+        {t('balances.addHint')}
       </p>
     );
   }
@@ -90,13 +96,16 @@ export function BalancesTab({ group }: { group: Group }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-3">
-        <Stat label="Total spend" value={formatMoney(stats.totalSpend, group.currency, group.currencyDecimals)} />
-        <Stat label="Expenses" value={String(stats.count)} />
-        <Stat label="Days span" value={stats.span > 0 ? `${stats.span} day${stats.span === 1 ? '' : 's'}` : '—'} />
+        <Stat label={t('balances.totalSpend')} value={formatMoney(stats.totalSpend, group.currency, group.currencyDecimals)} />
+        <Stat label={t('balances.expenses')} value={String(stats.count)} />
+        <Stat
+          label={t('balances.daysSpan')}
+          value={stats.span > 0 ? t('balances.days', { count: stats.span }) : '—'}
+        />
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Per member</h2>
+        <h2 className="text-lg font-semibold">{t('balances.perMember')}</h2>
         <ul className="grid gap-2 sm:grid-cols-2">
           {group.members.map((m) => {
             const net = balances.get(m.id) ?? 0;
@@ -114,7 +123,9 @@ export function BalancesTab({ group }: { group: Group }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{m.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    paid {formatMoney(perMember.paid.get(m.id) ?? 0, group.currency, group.currencyDecimals)} · share{' '}
+                    {t('balances.paid')}{' '}
+                    {formatMoney(perMember.paid.get(m.id) ?? 0, group.currency, group.currencyDecimals)} ·{' '}
+                    {t('balances.share')}{' '}
                     {formatMoney(perMember.share.get(m.id) ?? 0, group.currency, group.currencyDecimals)}
                   </p>
                 </div>
@@ -130,27 +141,27 @@ export function BalancesTab({ group }: { group: Group }) {
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Who pays whom</h2>
+          <h2 className="text-lg font-semibold">{t('balances.whoPaysWhom')}</h2>
           <Button variant="outline" size="sm" onClick={copySummary}>
-            Copy summary
+            {t('balances.copySummary')}
           </Button>
         </div>
         {transfers.length === 0 ? (
           <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-            All settled — no transfers needed.
+            {t('balances.allSettled')}
           </p>
         ) : (
           <ul className="divide-y rounded-lg border">
-            {transfers.map((t, i) => {
-              const from = group.members.find((m) => m.id === t.from);
-              const to = group.members.find((m) => m.id === t.to);
+            {transfers.map((tr, i) => {
+              const from = group.members.find((m) => m.id === tr.from);
+              const to = group.members.find((m) => m.id === tr.to);
               return (
                 <li key={i} className="flex items-center gap-3 px-4 py-3">
                   <span className="font-medium">{from?.name ?? '?'}</span>
                   <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{to?.name ?? '?'}</span>
                   <span className="ml-auto font-mono font-semibold">
-                    {formatMoney(t.amountMinor, group.currency, group.currencyDecimals)}
+                    {formatMoney(tr.amountMinor, group.currency, group.currencyDecimals)}
                   </span>
                 </li>
               );

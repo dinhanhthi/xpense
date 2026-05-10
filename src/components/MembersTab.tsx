@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -12,6 +13,7 @@ export function MembersTab({ group }: { group: Group }) {
   const renameMember = useGroupsStore((s) => s.renameMember);
   const removeMember = useGroupsStore((s) => s.removeMember);
   const [newName, setNewName] = useState('');
+  const { t } = useTranslation();
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -24,19 +26,19 @@ export function MembersTab({ group }: { group: Group }) {
     <div className="space-y-4">
       <form onSubmit={handleAdd} className="flex gap-2">
         <Input
-          placeholder="Add a member (e.g. Alice)"
+          placeholder={t('members.addPlaceholder')}
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
         />
         <Button type="submit" disabled={!newName.trim()}>
           <Plus />
-          Add
+          {t('members.addButton')}
         </Button>
       </form>
 
       {group.members.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Add at least one member to start logging expenses.
+          {t('members.emptyHint')}
         </p>
       ) : (
         <ul className="divide-y rounded-lg border">
@@ -49,17 +51,15 @@ export function MembersTab({ group }: { group: Group }) {
               onRemove={async () => {
                 try {
                   await removeMember(group.id, m.id);
-                  toast.success(`Removed ${m.name}`);
+                  toast.success(t('members.toastRemoved', { name: m.name }));
                 } catch (err) {
                   const msg = (err as Error).message;
                   if (msg === 'member-is-participant') {
-                    const ok = confirm(
-                      `${m.name} is split into existing expenses. Remove them and detach their share from those expenses? (Existing splits will be recomputed without them.)`,
-                    );
+                    const ok = confirm(t('members.confirmDetach', { name: m.name }));
                     if (!ok) return;
                     try {
                       await removeMember(group.id, m.id, { detach: true });
-                      toast.success(`Removed ${m.name} and detached from past expenses`);
+                      toast.success(t('members.toastRemovedDetached', { name: m.name }));
                     } catch (err2) {
                       toast.error((err2 as Error).message);
                     }
@@ -89,6 +89,7 @@ function MemberRow({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(member.name);
   const initial = member.name.charAt(0).toUpperCase() || '?';
+  const { t } = useTranslation();
 
   async function commit() {
     if (draft.trim() && draft !== member.name) {
@@ -123,7 +124,7 @@ function MemberRow({
       )}
       {editing ? (
         <>
-          <Button size="icon" variant="ghost" onClick={commit} aria-label="Save">
+          <Button size="icon" variant="ghost" onClick={commit} aria-label={t('members.saveAria')}>
             <Check className="h-4 w-4" />
           </Button>
           <Button
@@ -133,17 +134,17 @@ function MemberRow({
               setDraft(member.name);
               setEditing(false);
             }}
-            aria-label="Cancel"
+            aria-label={t('members.cancelAria')}
           >
             <X className="h-4 w-4" />
           </Button>
         </>
       ) : (
         <>
-          <Button size="icon" variant="ghost" onClick={() => setEditing(true)} aria-label="Rename">
+          <Button size="icon" variant="ghost" onClick={() => setEditing(true)} aria-label={t('members.renameAria')}>
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" onClick={onRemove} aria-label="Remove">
+          <Button size="icon" variant="ghost" onClick={onRemove} aria-label={t('members.removeAria')}>
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </>

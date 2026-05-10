@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, Image as ImageIcon, Users, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { ExpenseDialog } from './ExpenseDialog';
 import { useGroupsStore } from '@/store/groupsStore';
@@ -11,6 +12,7 @@ export function ExpensesTab({ group }: { group: Group }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Expense | undefined>(undefined);
   const deleteExpense = useGroupsStore((s) => s.deleteExpense);
+  const { t } = useTranslation();
 
   const sorted = useMemo(
     () => [...group.expenses].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt)),
@@ -29,30 +31,30 @@ export function ExpensesTab({ group }: { group: Group }) {
   }
 
   async function handleDelete(e: Expense) {
-    if (!confirm(`Delete expense "${e.title}"?`)) return;
+    if (!confirm(t('expenses.confirmDelete', { title: e.title }))) return;
     await deleteExpense(group.id, e.id);
-    toast.success('Expense deleted');
+    toast.success(t('expenses.toastDeleted'));
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {group.expenses.length} {group.expenses.length === 1 ? 'expense' : 'expenses'}
+          {t('expenses.count', { count: group.expenses.length })}
         </p>
         <Button onClick={openNew} disabled={noMembers}>
           <Plus />
-          Add expense
+          {t('expenses.addButton')}
         </Button>
       </div>
 
       {noMembers ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Add at least one member before logging expenses.
+          {t('expenses.noMembers')}
         </p>
       ) : sorted.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          No expenses yet. Click "Add expense" to log the first one.
+          {t('expenses.empty')}
         </p>
       ) : (
         <ul className="divide-y rounded-lg border">
@@ -80,7 +82,7 @@ export function ExpensesTab({ group }: { group: Group }) {
                         className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
                         style={{ backgroundColor: payer?.color ?? '#999', color: 'white' }}
                       >
-                        {payer?.name ?? 'unknown'}
+                        {payer?.name ?? t('expenses.unknownPayer')}
                       </span>
                     </div>
                   </div>
@@ -88,10 +90,10 @@ export function ExpensesTab({ group }: { group: Group }) {
                     {formatMoney(e.amountMinor, e.currency, group.currencyDecimals)}
                   </span>
                 </button>
-                <Button size="icon" variant="ghost" onClick={() => openEdit(e)} aria-label="Edit">
+                <Button size="icon" variant="ghost" onClick={() => openEdit(e)} aria-label={t('expenses.editAria')}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => handleDelete(e)} aria-label="Delete">
+                <Button size="icon" variant="ghost" onClick={() => handleDelete(e)} aria-label={t('expenses.deleteAria')}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </li>

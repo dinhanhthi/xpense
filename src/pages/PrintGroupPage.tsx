@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { Printer } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useGroupsStore } from '@/store/groupsStore';
 import { computeBalances, debtorOnePayeeTransfers } from '@/lib/settle';
@@ -14,13 +15,14 @@ export function PrintGroupPage() {
   const groups = useGroupsStore((s) => s.groups);
   const loaded = useGroupsStore((s) => s.loaded);
   const group = groupId ? groups.find((g) => g.id === groupId) : undefined;
+  const { t } = useTranslation();
 
   useEffect(() => {
-    if (group) document.title = `${group.name} — Xpense summary`;
+    if (group) document.title = t('print.docTitle', { name: group.name });
     return () => {
-      document.title = 'Xpense — Split expenses with friends';
+      document.title = t('print.defaultDocTitle');
     };
-  }, [group]);
+  }, [group, t]);
 
   if (!loaded) return null;
   if (!group) return <Navigate to="/" replace />;
@@ -29,10 +31,10 @@ export function PrintGroupPage() {
     <div className="print-page mx-auto max-w-3xl bg-white px-8 py-10 text-slate-900">
       <div className="no-print mb-6 flex justify-end gap-2">
         <Button variant="outline" onClick={() => window.history.back()}>
-          Back
+          {t('print.back')}
         </Button>
         <Button onClick={() => window.print()}>
-          <Printer /> Print / Save as PDF
+          <Printer /> {t('print.print')}
         </Button>
       </div>
       <Summary group={group} />
@@ -42,6 +44,7 @@ export function PrintGroupPage() {
 
 function Summary({ group }: { group: Group }) {
   const cur = getCurrency(group.currency);
+  const { t, i18n } = useTranslation();
 
   const totalSpend = useMemo(
     () => group.expenses.reduce((s, e) => s + e.amountMinor, 0),
@@ -93,35 +96,36 @@ function Summary({ group }: { group: Group }) {
     return { from: dates[0], to: dates[dates.length - 1] };
   }, [sortedExpenses]);
 
+  const generatedDate = new Date().toLocaleDateString(i18n.resolvedLanguage, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
   return (
     <article className="space-y-10">
       <header className="border-b border-slate-200 pb-6">
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-          Xpense · Group Summary
+          {t('print.header')}
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{group.name}</h1>
         <p className="mt-2 text-sm text-slate-500">
-          {cur.label} ({cur.code}) · generated{' '}
-          {new Date().toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
+          {t('print.generated', { currency: cur.label, code: cur.code, date: generatedDate })}
         </p>
       </header>
 
       <section className="grid grid-cols-3 gap-6">
-        <Stat label="Total spend" value={formatMoney(totalSpend, group.currency, group.currencyDecimals)} />
-        <Stat label="Expenses" value={String(group.expenses.length)} />
+        <Stat label={t('print.totalSpend')} value={formatMoney(totalSpend, group.currency, group.currencyDecimals)} />
+        <Stat label={t('print.expenses')} value={String(group.expenses.length)} />
         <Stat
-          label="Members"
+          label={t('print.members')}
           value={String(group.members.length)}
           sub={dateRange ? `${dateRange.from} → ${dateRange.to}` : '—'}
         />
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">Members</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">{t('print.members')}</h2>
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
           {group.members.map((m) => {
             const net = balances.get(m.id) ?? 0;
@@ -145,14 +149,14 @@ function Summary({ group }: { group: Group }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">Per member</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">{t('print.perMember')}</h2>
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-              <th className="py-2 font-medium">Member</th>
-              <th className="py-2 text-right font-medium">Paid</th>
-              <th className="py-2 text-right font-medium">Share</th>
-              <th className="py-2 text-right font-medium">Net</th>
+              <th className="py-2 font-medium">{t('print.tableMember')}</th>
+              <th className="py-2 text-right font-medium">{t('print.tablePaid')}</th>
+              <th className="py-2 text-right font-medium">{t('print.tableShare')}</th>
+              <th className="py-2 text-right font-medium">{t('print.tableNet')}</th>
             </tr>
           </thead>
           <tbody>
@@ -180,16 +184,16 @@ function Summary({ group }: { group: Group }) {
       </section>
 
       <section className="space-y-3 print-keep-together">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">Who pays whom</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">{t('print.whoPaysWhom')}</h2>
         {transfers.length === 0 ? (
           <p className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">
-            All settled — no transfers needed.
+            {t('print.allSettled')}
           </p>
         ) : (
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-            {transfers.map((t, i) => {
-              const from = group.members.find((m) => m.id === t.from);
-              const to = group.members.find((m) => m.id === t.to);
+            {transfers.map((tr, i) => {
+              const from = group.members.find((m) => m.id === tr.from);
+              const to = group.members.find((m) => m.id === tr.to);
               return (
                 <li
                   key={i}
@@ -209,7 +213,7 @@ function Summary({ group }: { group: Group }) {
                   />
                   <span className="font-medium text-slate-800">{to?.name ?? '?'}</span>
                   <span className="ml-auto font-mono font-semibold text-slate-900">
-                    {formatMoney(t.amountMinor, group.currency, group.currencyDecimals)}
+                    {formatMoney(tr.amountMinor, group.currency, group.currencyDecimals)}
                   </span>
                 </li>
               );
@@ -219,19 +223,19 @@ function Summary({ group }: { group: Group }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">Expenses</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">{t('print.expenses')}</h2>
         {sortedExpenses.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">
-            No expenses logged.
+            {t('print.noExpenses')}
           </p>
         ) : (
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                <th className="py-2 font-medium">Date</th>
-                <th className="py-2 font-medium">Title</th>
-                <th className="py-2 font-medium">Paid by</th>
-                <th className="py-2 text-right font-medium">Amount</th>
+                <th className="py-2 font-medium">{t('print.tableDate')}</th>
+                <th className="py-2 font-medium">{t('print.tableTitle')}</th>
+                <th className="py-2 font-medium">{t('print.tablePaidBy')}</th>
+                <th className="py-2 text-right font-medium">{t('print.tableAmount')}</th>
               </tr>
             </thead>
             <tbody>
@@ -264,7 +268,7 @@ function Summary({ group }: { group: Group }) {
             <tfoot>
               <tr>
                 <td colSpan={3} className="pt-3 text-right text-xs uppercase tracking-wider text-slate-500">
-                  Total
+                  {t('print.total')}
                 </td>
                 <td className="pt-3 text-right font-mono font-semibold text-slate-900">
                   {formatMoney(totalSpend, group.currency, group.currencyDecimals)}
@@ -276,7 +280,7 @@ function Summary({ group }: { group: Group }) {
       </section>
 
       <footer className="border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
-        Generated by Xpense · runs entirely in your browser
+        {t('print.footer')}
       </footer>
     </article>
   );

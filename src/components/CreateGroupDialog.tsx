@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogBody,
@@ -27,6 +28,7 @@ import { useGroupsStore } from '@/store/groupsStore';
 export function CreateGroupDialog({ trigger }: { trigger?: React.ReactNode }) {
   const navigate = useNavigate();
   const createGroup = useGroupsStore((s) => s.createGroup);
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState('EUR');
@@ -53,32 +55,30 @@ export function CreateGroupDialog({ trigger }: { trigger?: React.ReactNode }) {
         {trigger ?? (
           <Button>
             <Plus />
-            New group
+            {t('createGroup.trigger')}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit} className="contents">
           <DialogHeader>
-            <DialogTitle>Create a new group</DialogTitle>
-            <DialogDescription>
-              Pick a name and currency. You can change them later.
-            </DialogDescription>
+            <DialogTitle>{t('createGroup.title')}</DialogTitle>
+            <DialogDescription>{t('createGroup.description')}</DialogDescription>
           </DialogHeader>
           <DialogBody>
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="group-name">Group name</Label>
+                <Label htmlFor="group-name">{t('createGroup.name')}</Label>
                 <Input
                   id="group-name"
                   autoFocus
-                  placeholder="Trip to Lisbon"
+                  placeholder={t('createGroup.namePlaceholder')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="group-currency">Currency</Label>
+                <Label htmlFor="group-currency">{t('createGroup.currency')}</Label>
                 <Select value={currency} onValueChange={setCurrency}>
                   <SelectTrigger id="group-currency">
                     <SelectValue />
@@ -96,7 +96,7 @@ export function CreateGroupDialog({ trigger }: { trigger?: React.ReactNode }) {
           </DialogBody>
           <DialogFooter>
             <Button type="submit" disabled={!name.trim() || submitting}>
-              Create group
+              {t('createGroup.submit')}
             </Button>
           </DialogFooter>
         </form>

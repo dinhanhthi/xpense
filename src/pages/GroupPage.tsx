@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GroupHeader } from '@/components/GroupHeader';
 import { ExpensesTab } from '@/components/ExpensesTab';
@@ -14,6 +15,7 @@ export function GroupPage() {
   const groups = useGroupsStore((s) => s.groups);
   const loaded = useGroupsStore((s) => s.loaded);
   const group = groupId ? groups.find((g) => g.id === groupId) : undefined;
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (loaded && !group) {
@@ -31,10 +33,10 @@ export function GroupPage() {
       <GroupHeader group={group} />
       <Tabs defaultValue="expenses" className="w-full">
         <TabsList className="w-full justify-start sm:w-auto">
-          <TabsTrigger value="expenses">Expenses</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="balances">Balances</TabsTrigger>
-          <TabsTrigger value="share">Share</TabsTrigger>
+          <TabsTrigger value="expenses">{t('tabs.expenses')}</TabsTrigger>
+          <TabsTrigger value="members">{t('tabs.members')}</TabsTrigger>
+          <TabsTrigger value="balances">{t('tabs.balances')}</TabsTrigger>
+          <TabsTrigger value="share">{t('tabs.share')}</TabsTrigger>
         </TabsList>
         <TabsContent value="expenses">
           <ExpensesTab group={group} />

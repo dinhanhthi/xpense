@@ -1,4 +1,5 @@
 import { Wallet } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useGroupsStore } from '@/store/groupsStore';
 import { GroupCard } from '@/components/GroupCard';
 import { CreateGroupDialog } from '@/components/CreateGroupDialog';
@@ -6,15 +7,14 @@ import { CreateGroupDialog } from '@/components/CreateGroupDialog';
 export function HomePage() {
   const groups = useGroupsStore((s) => s.groups);
   const loaded = useGroupsStore((s) => s.loaded);
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Your groups</h1>
-          <p className="text-sm text-muted-foreground">
-            One group per trip, household, or shared expense pool.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('home.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('home.subtitle')}</p>
         </div>
         <CreateGroupDialog />
       </div>
@@ -29,10 +29,8 @@ export function HomePage() {
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-16 text-center">
           <Wallet className="h-10 w-10 text-muted-foreground" />
           <div>
-            <p className="font-medium">No groups yet</p>
-            <p className="text-sm text-muted-foreground">
-              Create your first group to start tracking shared expenses.
-            </p>
+            <p className="font-medium">{t('home.emptyTitle')}</p>
+            <p className="text-sm text-muted-foreground">{t('home.emptyHint')}</p>
           </div>
           <CreateGroupDialog />
         </div>

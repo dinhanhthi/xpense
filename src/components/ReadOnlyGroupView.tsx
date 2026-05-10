@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ArrowRight, Receipt } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { computeBalances, debtorOnePayeeTransfers } from '@/lib/settle';
 import { resolveShares } from '@/lib/splitting';
@@ -7,6 +8,7 @@ import { formatMoney } from '@/lib/format';
 import type { Group } from '@/types/domain';
 
 export function ReadOnlyGroupView({ group }: { group: Group }) {
+  const { t } = useTranslation();
   const balances = useMemo(() => {
     try {
       return computeBalances(group);
@@ -29,7 +31,7 @@ export function ReadOnlyGroupView({ group }: { group: Group }) {
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Members</h2>
+        <h2 className="text-lg font-semibold">{t('readOnly.members')}</h2>
         <ul className="flex flex-wrap gap-2">
           {group.members.map((m) => (
             <li
@@ -48,10 +50,10 @@ export function ReadOnlyGroupView({ group }: { group: Group }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Expenses</h2>
+        <h2 className="text-lg font-semibold">{t('readOnly.expenses')}</h2>
         {sortedExpenses.length === 0 ? (
           <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-            No expenses.
+            {t('readOnly.noExpenses')}
           </p>
         ) : (
           <ul className="divide-y rounded-lg border">
@@ -74,11 +76,11 @@ export function ReadOnlyGroupView({ group }: { group: Group }) {
                           className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
                           style={{ backgroundColor: payer?.color ?? '#999', color: 'white' }}
                         >
-                          paid by {payer?.name ?? 'unknown'}
+                          {t('readOnly.paidBy', { name: payer?.name ?? t('readOnly.unknown') })}
                         </span>
                         {e.imageIds.length > 0 && (
-                          <span className="inline-flex items-center gap-1" title="Images not shared">
-                            <Receipt className="h-3 w-3" /> {e.imageIds.length} photo{e.imageIds.length === 1 ? '' : 's'} (not shared)
+                          <span className="inline-flex items-center gap-1">
+                            <Receipt className="h-3 w-3" /> {t('readOnly.photos', { count: e.imageIds.length })}
                           </span>
                         )}
                       </div>
@@ -105,7 +107,7 @@ export function ReadOnlyGroupView({ group }: { group: Group }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Balances</h2>
+        <h2 className="text-lg font-semibold">{t('readOnly.balances')}</h2>
         <ul className="grid gap-2 sm:grid-cols-2">
           {group.members.map((m) => {
             const net = balances.get(m.id) ?? 0;
@@ -127,23 +129,23 @@ export function ReadOnlyGroupView({ group }: { group: Group }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Who pays whom</h2>
+        <h2 className="text-lg font-semibold">{t('readOnly.whoPaysWhom')}</h2>
         {transfers.length === 0 ? (
           <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-            All settled — no transfers needed.
+            {t('readOnly.allSettled')}
           </p>
         ) : (
           <ul className="divide-y rounded-lg border">
-            {transfers.map((t, i) => {
-              const from = group.members.find((m) => m.id === t.from);
-              const to = group.members.find((m) => m.id === t.to);
+            {transfers.map((tr, i) => {
+              const from = group.members.find((m) => m.id === tr.from);
+              const to = group.members.find((m) => m.id === tr.to);
               return (
                 <li key={i} className="flex items-center gap-3 px-4 py-3">
                   <span className="font-medium">{from?.name ?? '?'}</span>
                   <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{to?.name ?? '?'}</span>
                   <span className="ml-auto font-mono font-semibold">
-                    {formatMoney(t.amountMinor, group.currency, group.currencyDecimals)}
+                    {formatMoney(tr.amountMinor, group.currency, group.currencyDecimals)}
                   </span>
                 </li>
               );

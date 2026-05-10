@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -19,6 +20,13 @@ interface Props {
   decimals: number;
 }
 
+const MODE_LABEL_KEYS: Record<SplitMode, string> = {
+  equal: 'splitEditor.modeEqual',
+  percent: 'splitEditor.modePercent',
+  amount: 'splitEditor.modeAmount',
+  parts: 'splitEditor.modeParts',
+};
+
 export function SplitEditor(props: Props) {
   const {
     members,
@@ -31,6 +39,7 @@ export function SplitEditor(props: Props) {
     currency,
     decimals,
   } = props;
+  const { t } = useTranslation();
 
   const participantIds = useMemo(() => shares.map((s) => s.memberId), [shares]);
 
@@ -84,10 +93,10 @@ export function SplitEditor(props: Props) {
   return (
     <div className="space-y-4">
       <div className="grid gap-2">
-        <Label>Participants</Label>
+        <Label>{t('splitEditor.participants')}</Label>
         <div className="flex flex-wrap gap-2">
           {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Add members in the Members tab first.</p>
+            <p className="text-sm text-muted-foreground">{t('splitEditor.noMembersHint')}</p>
           ) : (
             members.map((m) => {
               const on = participantIds.includes(m.id);
@@ -111,7 +120,7 @@ export function SplitEditor(props: Props) {
       </div>
 
       <div className="grid gap-2">
-        <Label>Split mode</Label>
+        <Label>{t('splitEditor.splitMode')}</Label>
         <RadioGroup
           value={splitMode}
           onValueChange={(v) => changeMode(v as SplitMode)}
@@ -124,7 +133,7 @@ export function SplitEditor(props: Props) {
               className="flex cursor-pointer items-center gap-2 rounded-md border p-2 [&:has([data-state=checked])]:border-primary"
             >
               <RadioGroupItem id={`split-${m}`} value={m} />
-              <span className="capitalize">{m}</span>
+              <span>{t(MODE_LABEL_KEYS[m])}</span>
             </Label>
           ))}
         </RadioGroup>
@@ -175,7 +184,7 @@ export function SplitEditor(props: Props) {
 
       {participantIds.length > 0 && splitMode === 'equal' && amountMinor > 0 && (
         <p className="text-sm text-muted-foreground">
-          Each participant owes ≈{' '}
+          {t('splitEditor.eachOwes')}{' '}
           <span className="font-medium text-foreground">
             {formatMoney(Math.floor(amountMinor / Math.max(participantIds.length, 1)), currency, decimals)}
           </span>

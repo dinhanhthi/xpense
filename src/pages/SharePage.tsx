@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ export function SharePage() {
   const importGroup = useGroupsStore((s) => s.importGroup);
   const [hash, setHash] = useState(() => window.location.hash);
   const [manualToken, setManualToken] = useState('');
+  const { t } = useTranslation();
 
   useEffect(() => {
     const handler = () => setHash(window.location.hash);
@@ -29,29 +31,29 @@ export function SharePage() {
       const { group } = decodeGroupFromShare(token);
       return { kind: 'ok' as const, group };
     } catch (err) {
-      const msg = err instanceof ShareDecodeError ? err.message : 'Could not decode share token.';
+      const msg = err instanceof ShareDecodeError ? err.message : t('sharePage.decodeError');
       return { kind: 'error' as const, message: msg };
     }
-  }, [hash, manualToken]);
+  }, [hash, manualToken, t]);
 
   async function saveCopy(group: Group) {
     const created = await importGroup(group);
-    toast.success('Saved to this device');
+    toast.success(t('sharePage.toastSaved'));
     navigate(`/g/${created.id}`);
   }
 
   if (result.kind === 'empty') {
     return (
       <div className="mx-auto max-w-xl space-y-3">
-        <h1 className="text-xl font-semibold">Open a shared group</h1>
+        <h1 className="text-xl font-semibold">{t('sharePage.openTitle')}</h1>
         <p className="text-sm text-muted-foreground">
-          Paste a share token below, or open a link that ends with <code>#g=...</code>.
+          {t('sharePage.openHint')} <code>#g=...</code>.
         </p>
         <div className="grid gap-2">
-          <Label htmlFor="manual-token">Share token</Label>
+          <Label htmlFor="manual-token">{t('sharePage.shareToken')}</Label>
           <Input
             id="manual-token"
-            placeholder="N4IgZg..."
+            placeholder={t('sharePage.tokenPlaceholder')}
             value={manualToken}
             onChange={(e) => setManualToken(e.target.value)}
           />
@@ -66,15 +68,15 @@ export function SharePage() {
         <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
           <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
           <div>
-            <p className="font-medium text-destructive">Invalid share link</p>
+            <p className="font-medium text-destructive">{t('sharePage.invalidLink')}</p>
             <p className="text-sm text-destructive/80">{result.message}</p>
           </div>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="manual-token">Try pasting the token directly</Label>
+          <Label htmlFor="manual-token">{t('sharePage.tryPasting')}</Label>
           <Input
             id="manual-token"
-            placeholder="N4IgZg..."
+            placeholder={t('sharePage.tokenPlaceholder')}
             value={manualToken}
             onChange={(e) => setManualToken(e.target.value)}
           />
@@ -89,11 +91,11 @@ export function SharePage() {
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{group.name}</h1>
-          <p className="text-sm text-muted-foreground">Read-only · shared snapshot · images not included</p>
+          <p className="text-sm text-muted-foreground">{t('sharePage.readOnlyHint')}</p>
         </div>
         <div className="ml-auto">
           <Button onClick={() => saveCopy(group)}>
-            <Save /> Save a copy to this device
+            <Save /> {t('sharePage.saveCopy')}
           </Button>
         </div>
       </div>
